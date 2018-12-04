@@ -5,7 +5,8 @@ import org.hisp.dhis.common.DhisApiVersion;
 
 public class DhisFlywayConfiguration extends ClassicConfiguration
 {
-    private String installedBy = String.valueOf( DhisApiVersion.DEFAULT.getVersion() );
+    private static final String WAR = "war:";
+    private String installedBy = WAR + String.valueOf( DhisApiVersion.DEFAULT.getVersion() );
 
     @Override
     public String getInstalledBy()
