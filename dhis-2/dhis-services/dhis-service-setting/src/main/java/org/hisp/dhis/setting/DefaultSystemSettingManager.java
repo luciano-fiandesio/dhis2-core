@@ -35,17 +35,26 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.cache2k.Cache2kBuilder;
 import org.hisp.dhis.cache.Cache;
 import org.hisp.dhis.cache.CacheProvider;
 import org.hisp.dhis.commons.util.SystemUtils;
+import org.hisp.dhis.option.Option;
 import org.hisp.dhis.system.util.ValidationUtils;
 import org.jasypt.encryption.pbe.PBEStringEncryptor;
 import org.jasypt.exceptions.EncryptionOperationNotPossibleException;
@@ -75,6 +84,10 @@ public class DefaultSystemSettingManager
      * Cache for system settings. Does not accept nulls. Disabled during test phase.
      */
     private Cache<Serializable> settingCache;
+    private LoadingCache<SettingKey, Serializable> loadingCache;
+    private AsyncLoadingCache<SettingKey, Serializable> asyncloadingCache;
+    private org.cache2k.Cache<SettingKey, Serializable> cache2K;
+
 
     // -------------------------------------------------------------------------
     // Dependencies
@@ -121,13 +134,45 @@ public class DefaultSystemSettingManager
     public void init()
     {
         settingCache = cacheProvider.newCacheBuilder( Serializable.class ).forRegion( "systemSetting" )
-            .expireAfterWrite( 12, TimeUnit.HOURS )
-            .withMaximumSize( SystemUtils.isTestRun( environment.getActiveProfiles() ) ? 0 : 400 ).build();
+            .expireAfterWrite( 3, TimeUnit.SECONDS )
+            .withMaximumSize( 400 ).build();
+
+//       loadingCache = Caffeine.newBuilder()
+//                .expireAfterWrite(3, TimeUnit.SECONDS)
+//                .maximumSize( 10000 )
+//                .recordStats()
+//                .build(k -> getRandomVal( k.getName(), k.getDefaultValue()  ).orElse(null));
+//
+//
+//        asyncloadingCache = Caffeine.newBuilder()
+//                .expireAfterWrite(500, TimeUnit.MILLISECONDS)
+//                .maximumSize( 400 )
+//                .buildAsync((key, executor) -> CompletableFuture.supplyAsync(() -> getRandomVal( key.getName(), key.getDefaultValue()  ).orElse(null)));
+
+        cache2K = new Cache2kBuilder<SettingKey, Serializable>() {}
+                .expireAfterWrite(5, TimeUnit.MINUTES)    // expire/refresh after 5 minutes
+                .resilienceDuration(30, TimeUnit.SECONDS) // cope with at most 30 seconds
+                // outage before propagating
+                // exceptions
+                .refreshAhead(true)                       // keep fresh when expiring
+                .loader( k -> getRandomVal( k.getName(), k.getDefaultValue()  ).orElse(null))         // auto populating function
+                .build();
+
     }
 
     // -------------------------------------------------------------------------
     // SystemSettingManager implementation
     // -------------------------------------------------------------------------
+
+    private Optional<Serializable> getRandomVal( String name, Serializable defaultValue ) {
+
+        try {
+            Thread.sleep((long)(Math.random() * 1500));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return Optional.of(RandomStringUtils.randomAlphabetic(10));
+    }
 
     @Override
     @Transactional
@@ -177,11 +222,38 @@ public class DefaultSystemSettingManager
      * No transaction for this method, transaction is initiated in
      * {@link #getSystemSettingOptional} on cache miss.
      */
+    public Serializable getSystemSettingAsync( SettingKey key )
+    {
+        //System.out.println(">> " + key.getName());
+//        Optional<Serializable> value = settingCache.get( key.getName(),
+//            k -> getSystemSettingOptional( k, key.getDefaultValue() ).orElse( null ) );
+        //System.out.println(loadingCache.stats().toString());
+        long missCount = asyncloadingCache.synchronous().stats().missCount();
+        if (missCount % 10 == 0 && missCount != 0) {
+            System.out.println("missCount" + missCount + ", hitCount: " + asyncloadingCache.synchronous().stats().hitCount());
+        }
+
+        Optional<Serializable> value = null;
+        try {
+            value = Optional.ofNullable(asyncloadingCache.get(key).get());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return value.orElse( null );
+    }
     @Override
     public Serializable getSystemSetting( SettingKey key )
     {
+        Optional<Serializable> value = Optional.ofNullable(cache2K.get(key));
+        return value.orElse( null );
+    }
+
+    public Serializable getSystemSettingOrig( SettingKey key )
+    {
         Optional<Serializable> value = settingCache.get( key.getName(),
-            k -> getSystemSettingOptional( k, key.getDefaultValue() ).orElse( null ) );
+                k -> getRandomVal( k, key.getDefaultValue() ).orElse( null ) );
 
         return value.orElse( null );
     }
@@ -207,7 +279,7 @@ public class DefaultSystemSettingManager
     private Optional<Serializable> getSystemSettingOptional( String name, Serializable defaultValue )
     {
         SystemSetting setting = transactionTemplate.execute(status -> systemSettingStore.getByName( name ));
-
+//        SystemSetting setting = systemSettingStore.getByName( name );
         if ( setting != null && setting.hasValue() )
         {
             if ( isConfidential( name ) )

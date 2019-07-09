@@ -32,10 +32,15 @@ import org.hibernate.SessionFactory;
 import org.hisp.dhis.hibernate.HibernateGenericStore;
 import org.hisp.dhis.setting.SystemSetting;
 import org.hisp.dhis.setting.SystemSettingStore;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.criteria.CriteriaBuilder;
+import java.io.*;
+import java.util.List;
 
 /**
  * @author Lars Helge Overland
@@ -44,17 +49,89 @@ import javax.persistence.criteria.CriteriaBuilder;
 public class HibernateSystemSettingStore
     extends HibernateGenericStore<SystemSetting> implements SystemSettingStore
 {
+    @Autowired
+    @Qualifier("readOnlyJdbcTemplate")
+    private JdbcTemplate jdbcTemplate;
+
     public HibernateSystemSettingStore( SessionFactory sessionFactory, JdbcTemplate jdbcTemplate)
     {
         super( sessionFactory, jdbcTemplate, SystemSetting.class, true );
     }
 
     @Override
+    //@Transactional( readOnly = true )
     public SystemSetting getByName( String name )
     {
-        CriteriaBuilder builder = getCriteriaBuilder();
+        System.out.println(Thread.currentThread().getName());
+        try {
+//            try {
+//            Thread.sleep((long)(Math.random() * 1500));
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+            return jdbcTemplate.queryForObject( "SELECT VALUE FROM systemsetting where name = ?", new Object[] { name },
+                ( rs, rowNum ) -> {
+                    SystemSetting systemSetting = new SystemSetting();
+                    systemSetting.setName( name );
+                    byte[] val = rs.getBytes( "VALUE" );
+                    try
+                    {
+                        systemSetting.setValue( deserialize( val ) );
+                    }
+                    catch ( IOException | ClassNotFoundException e )
+                    {
+                        e.printStackTrace();
+                    }
+                    return systemSetting;
+                } );
+        } catch (Exception e) {
+            System.out.println("NAME: " + name + " ; " + e.getMessage());
+            throw e;
+        }
+    }
 
-        return getSingleResult( builder, newJpaParameters()
-            .addPredicate( root -> builder.equal( root.get( "name" ), name ) ));
+    @Transactional(readOnly = true)
+    public SystemSetting getByName2( String name )
+    {
+        CriteriaBuilder builder = getCriteriaBuilder();
+//        try {
+//            Thread.sleep((long)(Math.random() * 2500));
+//            System.out.println("waky waky: " + name);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+
+        List ll = sessionFactory.getCurrentSession().createNativeQuery("SELECT VALUE FROM systemsetting where name = '" + name +"'").getResultList();
+        SystemSetting systemSetting = new SystemSetting();
+        systemSetting.setName(name);
+        try {
+            byte[] val = (byte[]) ll.get(0);
+            systemSetting.setValue(deserialize(val));
+        } catch (Exception e) {
+            //System.out.println("---- " + name);
+            //e.printStackTrace();
+        }
+        return systemSetting;
+//        return getSingleResult( builder, newJpaParameters()
+//            .addPredicate( root -> builder.equal( root.get( "name" ), name ) ));
+    }
+
+    private Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException {
+
+        ByteArrayInputStream bis = new ByteArrayInputStream(b);
+        ObjectInput in = null;
+        try {
+            in = new ObjectInputStream(bis);
+            Object o = in.readObject();
+            return (Serializable) o;
+        } finally {
+            try {
+                if (in != null) {
+                    in.close();
+                }
+            } catch (IOException ex) {
+                // ignore close exception
+            }
+        }
     }
 }

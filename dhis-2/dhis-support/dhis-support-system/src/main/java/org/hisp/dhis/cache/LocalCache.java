@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 
 /**
  * Local cache implementation of {@link Cache}. This implementation is backed by
