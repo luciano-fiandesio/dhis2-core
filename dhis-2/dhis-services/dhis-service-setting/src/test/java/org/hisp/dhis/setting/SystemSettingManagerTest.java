@@ -257,6 +257,7 @@ public class SystemSettingManagerTest
                         .getSystemSettings(
                                 Lists.newArrayList(EMAIL_HOST_NAME, EMAIL_USERNAME, EMAIL_PASSWORD))));
             }
+            System.out.println("10K !");
         }
 
         List<Serializable> vals = new ArrayList<>();

@@ -149,14 +149,14 @@ public class DefaultSystemSettingManager
 //                .maximumSize( 400 )
 //                .buildAsync((key, executor) -> CompletableFuture.supplyAsync(() -> getRandomVal( key.getName(), key.getDefaultValue()  ).orElse(null)));
 
-        cache2K = new Cache2kBuilder<SettingKey, Serializable>() {}
-                .expireAfterWrite(5, TimeUnit.MINUTES)    // expire/refresh after 5 minutes
-                .resilienceDuration(30, TimeUnit.SECONDS) // cope with at most 30 seconds
-                // outage before propagating
-                // exceptions
-                .refreshAhead(true)                       // keep fresh when expiring
-                .loader( k -> getRandomVal( k.getName(), k.getDefaultValue()  ).orElse(null))         // auto populating function
-                .build();
+//        cache2K = new Cache2kBuilder<SettingKey, Serializable>() {}
+//                .expireAfterWrite(5, TimeUnit.MINUTES)    // expire/refresh after 5 minutes
+//                .resilienceDuration(30, TimeUnit.SECONDS) // cope with at most 30 seconds
+//                // outage before propagating
+//                // exceptions
+//                .refreshAhead(true)                       // keep fresh when expiring
+//                .loader( k -> getRandomVal( k.getName(), k.getDefaultValue()  ).orElse(null))         // auto populating function
+//                .build();
 
     }
 
@@ -243,14 +243,15 @@ public class DefaultSystemSettingManager
         }
         return value.orElse( null );
     }
-    @Override
-    public Serializable getSystemSetting( SettingKey key )
+
+    public Serializable getSystemSettingCache2K( SettingKey key )
     {
         Optional<Serializable> value = Optional.ofNullable(cache2K.get(key));
         return value.orElse( null );
     }
 
-    public Serializable getSystemSettingOrig( SettingKey key )
+    @Override
+    public Serializable getSystemSetting( SettingKey key )
     {
         Optional<Serializable> value = settingCache.get( key.getName(),
                 k -> getRandomVal( k, key.getDefaultValue() ).orElse( null ) );
