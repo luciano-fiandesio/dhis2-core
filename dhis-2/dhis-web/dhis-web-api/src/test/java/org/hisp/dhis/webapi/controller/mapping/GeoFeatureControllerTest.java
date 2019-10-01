@@ -124,7 +124,7 @@ public class GeoFeatureControllerTest
 
     private OrganisationUnit createOrgUnitWithoutCoordinates()
     {
-        return beanRandomizer.randomObject( OrganisationUnit.class, "parent", "geometry" );
+        return beanRandomizer.randomObject( OrganisationUnit.class );
     }
 
     private OrganisationUnit createOrgUnitWithCoordinates()

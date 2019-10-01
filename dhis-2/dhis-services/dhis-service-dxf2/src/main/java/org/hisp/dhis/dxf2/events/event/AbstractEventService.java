@@ -71,6 +71,7 @@ import org.hisp.dhis.dxf2.importsummary.ImportConflict;
 import org.hisp.dhis.dxf2.importsummary.ImportStatus;
 import org.hisp.dhis.dxf2.importsummary.ImportSummaries;
 import org.hisp.dhis.dxf2.importsummary.ImportSummary;
+import org.hisp.dhis.dxf2.mapping.EventProgramStageInstanceMapper;
 import org.hisp.dhis.dxf2.metadata.feedback.ImportReportMode;
 import org.hisp.dhis.event.EventStatus;
 import org.hisp.dhis.eventdatavalue.EventDataValue;
@@ -246,6 +247,9 @@ public abstract class AbstractEventService
 
     @Autowired
     private ProgramRuleVariableService ruleVariableService;
+
+    @Autowired
+    private EventProgramStageInstanceMapper programStageInstanceMapper;
 
     protected static final int FLUSH_FREQUENCY = 100;
 
@@ -823,129 +827,31 @@ public abstract class AbstractEventService
             return null;
         }
 
-        Event event = new Event();
-        event.setEvent( programStageInstance.getUid() );
-
-        if ( programStageInstance.getProgramInstance().getEntityInstance() != null )
-        {
-            event.setTrackedEntityInstance( programStageInstance.getProgramInstance().getEntityInstance().getUid() );
-        }
-
-        event.setFollowup( programStageInstance.getProgramInstance().getFollowup() );
-        event.setEnrollmentStatus( EnrollmentStatus.fromProgramStatus( programStageInstance.getProgramInstance().getStatus() ) );
-        event.setStatus( programStageInstance.getStatus() );
-        event.setEventDate( DateUtils.getIso8601NoTz( programStageInstance.getExecutionDate() ) );
-        event.setDueDate( DateUtils.getIso8601NoTz( programStageInstance.getDueDate() ) );
-        event.setStoredBy( programStageInstance.getStoredBy() );
-        event.setCompletedBy( programStageInstance.getCompletedBy() );
-        event.setCompletedDate( DateUtils.getIso8601NoTz( programStageInstance.getCompletedDate() ) );
-        event.setCreated( DateUtils.getIso8601NoTz( programStageInstance.getCreated() ) );
-        event.setCreatedAtClient( DateUtils.getIso8601NoTz( programStageInstance.getCreatedAtClient() ) );
-        event.setLastUpdated( DateUtils.getIso8601NoTz( programStageInstance.getLastUpdated() ) );
-        event.setLastUpdatedAtClient( DateUtils.getIso8601NoTz( programStageInstance.getLastUpdatedAtClient() ) );
-        event.setGeometry( programStageInstance.getGeometry() );
-        event.setDeleted( programStageInstance.isDeleted() );
-
-        // Lat and lnt deprecated in 2.30, remove by 2.33
-        if ( event.getGeometry() != null && event.getGeometry().getGeometryType().equals( "Point" ) )
-        {
-            com.vividsolutions.jts.geom.Coordinate geometryCoordinate = event.getGeometry().getCoordinate();
-            event.setCoordinate( new Coordinate( geometryCoordinate.x, geometryCoordinate.y ) );
-        }
-
-        if ( programStageInstance.getAssignedUser() != null )
-        {
-            event.setAssignedUser( programStageInstance.getAssignedUser().getUid() );
-            event.setAssignedUserUsername( programStageInstance.getAssignedUser().getUsername() );
-        }
-
         User user = currentUserService.getCurrentUser();
-        OrganisationUnit ou = programStageInstance.getOrganisationUnit();
 
-        List<String> errors = trackerAccessManager.canRead( user, programStageInstance, skipOwnershipCheck );
+        List<String> errors = trackerAccessManager.canRead( currentUserService.getCurrentUser(), programStageInstance, skipOwnershipCheck );
 
         if ( !errors.isEmpty() )
         {
             throw new IllegalQueryException( errors.toString() );
         }
 
-        if ( ou != null )
-        {
-            event.setOrgUnit( ou.getUid() );
-            event.setOrgUnitName( ou.getName() );
-        }
+        Event event = programStageInstanceMapper.programStageInstanceToEvent( programStageInstance, isSynchronizationQuery );
 
-        Program program = programStageInstance.getProgramInstance().getProgram();
+        //Collection<EventDataValue> dataValues = null;
 
-        event.setProgram( program.getUid() );
-        event.setEnrollment( programStageInstance.getProgramInstance().getUid() );
-        event.setProgramStage( programStageInstance.getProgramStage().getUid() );
-        event.setAttributeOptionCombo( programStageInstance.getAttributeOptionCombo().getUid() );
-        event.setAttributeCategoryOptions( String.join( ";", programStageInstance.getAttributeOptionCombo()
-            .getCategoryOptions().stream().map( CategoryOption::getUid ).collect( Collectors.toList() ) ) );
-
-        if ( programStageInstance.getProgramInstance().getEntityInstance() != null )
-        {
-            event.setTrackedEntityInstance( programStageInstance.getProgramInstance().getEntityInstance().getUid() );
-        }
-
-        Collection<EventDataValue> dataValues;
-        if ( !isSynchronizationQuery )
-        {
-            dataValues = programStageInstance.getEventDataValues();
-        }
-        else
-        {
-            Set<String> dataElementsToSync = programStageInstance.getProgramStage().getProgramStageDataElements().stream()
-                .filter( psde -> !psde.getSkipSynchronization() )
-                .map( psde -> psde.getDataElement().getUid() )
-                .collect( Collectors.toSet());
-
-            dataValues = programStageInstance.getEventDataValues().stream()
-                .filter( dv -> dataElementsToSync.contains( dv.getDataElement() ) )
-                .collect( Collectors.toSet());
-        }
-
-        for ( EventDataValue dataValue : dataValues )
-        {
-            DataElement dataElement = getDataElement( IdScheme.UID, dataValue.getDataElement() );
-
-            errors = trackerAccessManager.canRead( user, programStageInstance, dataElement, true );
-
-            if ( !errors.isEmpty() )
-            {
-                continue;
-            }
-
-            DataValue value = new DataValue();
-            value.setCreated( DateUtils.getIso8601NoTz( dataValue.getCreated() ) );
-            value.setLastUpdated( DateUtils.getIso8601NoTz( dataValue.getLastUpdated() ) );
-            value.setDataElement( dataValue.getDataElement() );
-            value.setValue( dataValue.getValue() );
-            value.setProvidedElsewhere( dataValue.getProvidedElsewhere() );
-            value.setStoredBy( dataValue.getStoredBy() );
-
-            event.getDataValues().add( value );
-        }
-
-        List<TrackedEntityComment> comments = programStageInstance.getComments();
-
-        for ( TrackedEntityComment comment : comments )
-        {
-            Note note = new Note();
-
-            note.setNote( comment.getUid() );
-            note.setValue( comment.getCommentText() );
-            note.setStoredBy( comment.getCreator() );
-            note.setStoredDate( DateUtils.getIso8601NoTz( comment.getCreated() ) );
-
-            event.getNotes().add( note );
-        }
+//        DataElement dataElement = getDataElement( IdScheme.UID, dataValue.getDataElement() );
+//
+//        errors = trackerAccessManager.canRead( user, programStageInstance, dataElement, true );
+//
+//        if ( !errors.isEmpty() )
+//        {
+//            continue;
+//        }
 
         event.setRelationships( programStageInstance.getRelationshipItems().stream()
             .map( ( r ) -> relationshipService.getRelationship( r.getRelationship(), RelationshipParams.FALSE, user ) )
-            .collect( Collectors.toSet() )
-        );
+            .collect( Collectors.toSet() ) );
 
         return event;
     }

@@ -30,10 +30,8 @@ package org.hisp.dhis.dxf2.mapping;
 
 import org.hisp.dhis.dxf2.events.enrollment.Enrollment;
 import org.hisp.dhis.dxf2.events.event.Coordinate;
-import org.hisp.dhis.dxf2.events.event.Note;
 import org.hisp.dhis.organisationunit.FeatureType;
 import org.hisp.dhis.program.ProgramInstance;
-import org.hisp.dhis.trackedentitycomment.TrackedEntityComment;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -42,7 +40,7 @@ import org.mapstruct.MappingTarget;
 /**
  * @author Luciano Fiandesio
  */
-@Mapper
+@Mapper(uses = { TrackedEntityCommentNoteMapper.class })
 public abstract class EnrollmentProgramInstanceMapper
 {
     @Mapping( source = "uid", target = "enrollment" )
@@ -60,16 +58,10 @@ public abstract class EnrollmentProgramInstanceMapper
 
     public abstract Enrollment programInstanceToEnrollment( ProgramInstance programInstance );
 
-    @Mapping( source = "uid", target = "note" )
-    @Mapping( source = "commentText", target = "value" )
-    @Mapping( source = "creator", target = "storedBy" )
-    @Mapping( target = "storedDate", expression = "java( org.hisp.dhis.util.DateUtils.getIso8601NoTz( comment.getCreated() ) )" )
-    public abstract Note trackedEntityCommentToNote(TrackedEntityComment comment);
-
     @AfterMapping
     protected void mapCoordinateIfPoint( ProgramInstance programInstance, @MappingTarget Enrollment enrollment )
     {
-        if ( programInstance.getProgram() != null && programInstance.getProgram().getFeatureType() != null )
+        if ( programInstance.getProgram() != null && programInstance.getProgram().getFeatureType() != null && programInstance.getGeometry() != null )
         {
             if ( programInstance.getProgram().getFeatureType().equals( FeatureType.POINT ) )
             {
