@@ -1,5 +1,3 @@
-package org.hisp.dhis.random;
-
 /*
  * Copyright (c) 2004-2019, University of Oslo
  * All rights reserved.
@@ -28,39 +26,45 @@ package org.hisp.dhis.random;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package org.hisp.dhis.random;
+
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-import org.hisp.dhis.period.PeriodType;
-
+import com.vividsolutions.jts.geom.Geometry;
+import org.geotools.geojson.geom.GeometryJSON;
 import org.jeasy.random.api.Randomizer;
+
 
 /**
  * @author Luciano Fiandesio
  */
-public class PeriodTypeRandomizer
+public class GeometryRandomizer
     implements
-        Randomizer<PeriodType>
+        Randomizer<Geometry>
 {
-    private List<PeriodType> periodTypes = Arrays.asList(
-        PeriodType.getPeriodTypeFromIsoString( "2011" ),
-        PeriodType.getPeriodTypeFromIsoString( "201101" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011W1" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011W32" ),
-        PeriodType.getPeriodTypeFromIsoString( "20110101" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011Q3" ),
-        PeriodType.getPeriodTypeFromIsoString( "201101B" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011S1" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011AprilS1" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011April" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011July" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011Oct" )
-    );
+    private GeometryJSON geometryJSON = new GeometryJSON();
+    private final static String POINT = "{\n" + "\"type\": \"Point\",\n" + "\"coordinates\": [%s]\n" + "}";
+
+    private List<String> points = Arrays.asList(
+            "4.921875, 24.206889622398023",
+            "19.6875,14.26438308756265",
+            "22.148437499999996,-10.487811882056683",
+            "-11.513671874999998,13.239945499286312" );
 
     @Override
-    public PeriodType getRandomValue()
+    public Geometry getRandomValue()
     {
-        return periodTypes.get(new Random().nextInt(periodTypes.size() -1 ));
+        try
+        {
+           return geometryJSON
+                .read( String.format( POINT, points.get( new Random().nextInt( points.size() - 1 ) ) ) );
+        }
+        catch ( IOException e )
+        {
+            throw new IllegalArgumentException();
+        }
     }
 }

@@ -47,7 +47,6 @@ import org.hisp.dhis.dxf2.common.ImportOptions;
 import org.hisp.dhis.dxf2.events.RelationshipParams;
 import org.hisp.dhis.dxf2.events.TrackedEntityInstanceParams;
 import org.hisp.dhis.dxf2.events.TrackerAccessManager;
-import org.hisp.dhis.dxf2.events.event.Coordinate;
 import org.hisp.dhis.dxf2.events.event.Event;
 import org.hisp.dhis.dxf2.events.event.EventService;
 import org.hisp.dhis.dxf2.events.event.Note;
@@ -59,6 +58,7 @@ import org.hisp.dhis.dxf2.importsummary.ImportConflict;
 import org.hisp.dhis.dxf2.importsummary.ImportStatus;
 import org.hisp.dhis.dxf2.importsummary.ImportSummaries;
 import org.hisp.dhis.dxf2.importsummary.ImportSummary;
+import org.hisp.dhis.dxf2.mapping.EnrollmentProgramInstanceMapper;
 import org.hisp.dhis.i18n.I18nManager;
 import org.hisp.dhis.organisationunit.FeatureType;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
@@ -176,6 +176,9 @@ public abstract class AbstractEnrollmentService
     @Autowired
     protected Notifier notifier;
 
+    @Autowired
+    protected EnrollmentProgramInstanceMapper enrollmentPiMapper;
+
     private CachingMap<String, OrganisationUnit> organisationUnitCache = new CachingMap<>();
 
     private CachingMap<String, Program> programCache = new CachingMap<>();
@@ -257,8 +260,6 @@ public abstract class AbstractEnrollmentService
     @Override
     public Enrollment getEnrollment( User user, ProgramInstance programInstance, TrackedEntityInstanceParams params, boolean skipOwnershipCheck )
     {
-        Enrollment enrollment = new Enrollment();
-        enrollment.setEnrollment( programInstance.getUid() );
         List<String> errors = trackerAccessManager.canRead( user, programInstance, skipOwnershipCheck );
 
         if ( !errors.isEmpty() )
@@ -266,56 +267,7 @@ public abstract class AbstractEnrollmentService
             throw new IllegalQueryException( errors.toString() );
         }
 
-        if ( programInstance.getEntityInstance() != null )
-        {
-            enrollment.setTrackedEntityType( programInstance.getEntityInstance().getTrackedEntityType().getUid() );
-            enrollment.setTrackedEntityInstance( programInstance.getEntityInstance().getUid() );
-        }
-
-        if ( programInstance.getOrganisationUnit() != null )
-        {
-            enrollment.setOrgUnit( programInstance.getOrganisationUnit().getUid() );
-            enrollment.setOrgUnitName( programInstance.getOrganisationUnit().getName() );
-        }
-
-        if ( programInstance.getGeometry() != null )
-        {
-            enrollment.setGeometry( programInstance.getGeometry() );
-
-            if ( programInstance.getProgram().getFeatureType().equals( FeatureType.POINT ) )
-            {
-                com.vividsolutions.jts.geom.Coordinate co = programInstance.getGeometry().getCoordinate();
-                enrollment.setCoordinate( new Coordinate( co.x, co.y ) );
-            }
-        }
-
-        enrollment.setCreated( DateUtils.getIso8601NoTz( programInstance.getCreated() ) );
-        enrollment.setCreatedAtClient( DateUtils.getIso8601NoTz( programInstance.getCreatedAtClient() ) );
-        enrollment.setLastUpdated( DateUtils.getIso8601NoTz( programInstance.getLastUpdated() ) );
-        enrollment.setLastUpdatedAtClient( DateUtils.getIso8601NoTz( programInstance.getLastUpdatedAtClient() ) );
-        enrollment.setProgram( programInstance.getProgram().getUid() );
-        enrollment.setStatus( EnrollmentStatus.fromProgramStatus( programInstance.getStatus() ) );
-        enrollment.setEnrollmentDate( programInstance.getEnrollmentDate() );
-        enrollment.setIncidentDate( programInstance.getIncidentDate() );
-        enrollment.setFollowup( programInstance.getFollowup() );
-        enrollment.setCompletedDate( programInstance.getEndDate() );
-        enrollment.setCompletedBy( programInstance.getCompletedBy() );
-        enrollment.setStoredBy( programInstance.getStoredBy() );
-        enrollment.setDeleted( programInstance.isDeleted() );
-
-        List<TrackedEntityComment> comments = programInstance.getComments();
-
-        for ( TrackedEntityComment comment : comments )
-        {
-            Note note = new Note();
-
-            note.setNote( comment.getUid() );
-            note.setValue( comment.getCommentText() );
-            note.setStoredBy( comment.getCreator() );
-            note.setStoredDate( DateUtils.getIso8601NoTz( comment.getCreated() ) );
-
-            enrollment.getNotes().add( note );
-        }
+        Enrollment enrollment = enrollmentPiMapper.programInstanceToEnrollment( programInstance );
 
         if ( params.isIncludeEvents() )
         {

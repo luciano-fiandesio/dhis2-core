@@ -28,53 +28,81 @@ package org.hisp.dhis.random;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import io.github.benas.randombeans.api.EnhancedRandom;
+import com.vividsolutions.jts.geom.Geometry;
+import org.hisp.dhis.common.BaseIdentifiableObject;
 import org.hisp.dhis.period.PeriodType;
+import org.jeasy.random.EasyRandom;
+import org.jeasy.random.EasyRandomParameters;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.github.benas.randombeans.EnhancedRandomBuilder.aNewEnhancedRandomBuilder;
-import static io.github.benas.randombeans.FieldDefinitionBuilder.*;
+import static org.jeasy.random.FieldPredicates.*;
 
 /**
  * @author Luciano Fiandesio
  */
 public class BeanRandomizer
 {
-    private EnhancedRandom rand;
+    private EasyRandom rand;
+
+    private EasyRandomParameters DEFAULTS = new EasyRandomParameters()
+        .seed( 84782783L )
+        .objectPoolSize( 100 )
+        .randomizationDepth( 3 )
+        .charset( StandardCharsets.UTF_8 )
+        .stringLengthRange( 5, 50 )
+        .collectionSizeRange( 5, 20 )
+        .scanClasspathForConcreteTypes( true )
+        .overrideDefaultInitialization( true )
+        .ignoreRandomizationErrors( false );
 
     public BeanRandomizer()
     {
-        rand = aNewEnhancedRandomBuilder()
-            .randomize( PeriodType.class, new PeriodTypeRandomizer() )
-            .randomize( field().named( "uid" ).ofType( String.class ).get(), new UidRandomizer() )
-            .randomize( field().named( "id" ).ofType( long.class ).get(), new IdRandomizer() )
-            .build();
+        DEFAULTS.randomize( PeriodType.class, new PeriodTypeRandomizer() );
+        DEFAULTS.randomize( named( "uid" ).and( ofType( String.class ) ), new UidRandomizer() );
+        DEFAULTS.randomize( named( "id" ).and( ofType( long.class ) ), new IdRandomizer() );
+        DEFAULTS.randomize( named( "geometry" ).and( ofType( Geometry.class ) ), new GeometryRandomizer() );
+        // Exclusions //
+        DEFAULTS.excludeField( named( "translations" ) );
+        DEFAULTS.excludeField( named( "translationCache" ) );
+        DEFAULTS.excludeField( named( "externalAccess" ) );
+        DEFAULTS.excludeField( named( "publicAccess" ) );
+        DEFAULTS.excludeField( named( "user" ) );
+        DEFAULTS.excludeField( named( "userAccesses" ) );
+        DEFAULTS.excludeField( named( "userGroupAccesses" ) );
+        DEFAULTS.excludeField( named( "access" ) );
+        DEFAULTS.excludeField( named( "favorites" ) );
+        DEFAULTS.excludeField( named( "href" ) );
+        DEFAULTS.excludeField( named( "user" ) );
+        DEFAULTS.excludeField( named( "textPattern" ) );
+        DEFAULTS.excludeField( named( "cacheAttributeValues" ) );
+
+        rand = new EasyRandom( DEFAULTS );
     }
 
     /**
      * Generates an instance of the specified type and fill the instance's properties with random data
      * @param type The bean type
-     * @param excludedFields a list of fields to exclude from the random population
      *
      * @return an instance of the specified type
      */
-    public <T> T randomObject( final Class<T> type, final String... excludedFields )
+    public <T> T randomObject( final Class<T> type )
     {
-        return rand.nextObject( type, excludedFields );
+        return rand.nextObject( type );
     }
 
     /**
      * Generates multiple instances of the specified type and fills each instance's properties with random data
      * @param type The bean type
      * @param amount the amount of beans to generate
-     * @param excludedFields a list of fields to exclude from the random population
      *
      * @return an instance of the specified type
      */
-    public <T> List<T> randomObjects( final Class<T> type, int amount, final String... excludedFields )
+    public <T> List<T> randomObjects( final Class<T> type, int amount)
     {
-        return rand.objects( type, amount, excludedFields ).collect( Collectors.toList() );
+        return rand.objects( type, amount ).collect( Collectors.toList() );
     }
 }

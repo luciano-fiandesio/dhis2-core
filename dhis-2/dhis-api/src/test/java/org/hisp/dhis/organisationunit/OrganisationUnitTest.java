@@ -34,6 +34,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.geotools.geojson.geom.GeometryJSON;
@@ -139,8 +140,8 @@ public class OrganisationUnitTest
         unitC.setParent( unitB );
         unitB.setParent( unitA );
         
-        List<OrganisationUnit> roots = new ArrayList<>( Arrays.asList( unitB ) );
-        
+        List<OrganisationUnit> roots = new ArrayList<>( Collections.singletonList( unitB ) );
+
         List<OrganisationUnit> expected = new ArrayList<>( Arrays.asList( unitB, unitC ) );
         
         assertEquals( expected, unitD.getAncestors( roots ) );
@@ -165,8 +166,8 @@ public class OrganisationUnitTest
         unitC.setParent( unitB );
         unitB.setParent( unitA );
         
-        List<OrganisationUnit> roots = new ArrayList<>( Arrays.asList( unitB ) );
-        
+        List<OrganisationUnit> roots = new ArrayList<>( Collections.singletonList( unitB ) );
+
         String expected = "/OrgUnitB/OrgUnitC";
         
         assertEquals( expected, unitD.getParentNameGraph( roots, false ) );

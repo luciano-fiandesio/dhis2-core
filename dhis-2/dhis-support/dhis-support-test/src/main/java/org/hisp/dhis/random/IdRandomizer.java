@@ -29,16 +29,15 @@
 package org.hisp.dhis.random;
 
 import org.apache.commons.lang3.RandomUtils;
-import org.hisp.dhis.common.CodeGenerator;
+import org.jeasy.random.api.Randomizer;
 
-import io.github.benas.randombeans.api.Randomizer;
 
 /**
  * @author Luciano Fiandesio
  */
 public class IdRandomizer
     implements
-    Randomizer<Long>
+        Randomizer<Long>
 {
     @Override
     public Long getRandomValue()

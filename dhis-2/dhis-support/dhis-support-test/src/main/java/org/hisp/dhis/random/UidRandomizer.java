@@ -29,15 +29,15 @@ package org.hisp.dhis.random;
  */
 
 import org.hisp.dhis.common.CodeGenerator;
+import org.jeasy.random.api.Randomizer;
 
-import io.github.benas.randombeans.api.Randomizer;
 
 /**
  * @author Luciano Fiandesio
  */
 public class UidRandomizer
     implements
-    Randomizer<String>
+        Randomizer<String>
 {
     @Override
     public String getRandomValue()

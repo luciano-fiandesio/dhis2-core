@@ -1,5 +1,3 @@
-package org.hisp.dhis.random;
-
 /*
  * Copyright (c) 2004-2019, University of Oslo
  * All rights reserved.
@@ -28,39 +26,40 @@ package org.hisp.dhis.random;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+package org.hisp.dhis.dxf2.mapping;
 
-import org.hisp.dhis.period.PeriodType;
-
-import org.jeasy.random.api.Randomizer;
+import static org.junit.Assert.*;
 
 /**
  * @author Luciano Fiandesio
  */
-public class PeriodTypeRandomizer
-    implements
-        Randomizer<PeriodType>
-{
-    private List<PeriodType> periodTypes = Arrays.asList(
-        PeriodType.getPeriodTypeFromIsoString( "2011" ),
-        PeriodType.getPeriodTypeFromIsoString( "201101" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011W1" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011W32" ),
-        PeriodType.getPeriodTypeFromIsoString( "20110101" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011Q3" ),
-        PeriodType.getPeriodTypeFromIsoString( "201101B" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011S1" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011AprilS1" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011April" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011July" ),
-        PeriodType.getPeriodTypeFromIsoString( "2011Oct" )
-    );
+import org.hisp.dhis.dxf2.events.enrollment.Enrollment;
+import org.hisp.dhis.program.ProgramInstance;
+import org.hisp.dhis.random.BeanRandomizer;
+import org.hisp.dhis.trackedentitycomment.TrackedEntityComment;
+import org.junit.Test;
+import org.mapstruct.factory.Mappers;
 
-    @Override
-    public PeriodType getRandomValue()
+import static org.junit.Assert.*;
+
+/**
+ * @author Luciano Fiandesio
+ */
+public class EnrollmentProgramInstanceMapperTest
+{
+    private EnrollmentProgramInstanceMapper mapper = Mappers.getMapper( EnrollmentProgramInstanceMapper.class );
+
+    @Test
+    public void t1()
     {
-        return periodTypes.get(new Random().nextInt(periodTypes.size() -1 ));
+        BeanRandomizer rnd = new BeanRandomizer();
+        ProgramInstance pi = rnd.randomObject( ProgramInstance.class );
+        pi.setComments( rnd.randomObjects( TrackedEntityComment.class, 8));
+        Enrollment enrollment = mapper.programInstanceToEnrollment( pi );
+
+        assertEquals( enrollment.getEnrollment(), pi.getUid() );
+        assertEquals( enrollment.getProgram(), pi.getProgram().getUid() );
+        assertEquals( enrollment.getNotes().size(), pi.getComments().size() );
+
     }
 }

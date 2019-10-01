@@ -337,8 +337,7 @@ public class DefaultDataQueryServiceTest
         OrganisationUnit ou1Group = new OrganisationUnit( "ou1-group" );
         OrganisationUnit ou2Group = new OrganisationUnit( "ou2-group" );
         
-        OrganisationUnitGroup groupOu = beanRandomizer.randomObject(OrganisationUnitGroup.class, "geometry");
-        
+        OrganisationUnitGroup groupOu = beanRandomizer.randomObject( OrganisationUnitGroup.class );
 
         mockDimensionService();
 

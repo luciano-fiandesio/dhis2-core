@@ -309,14 +309,14 @@ public class DataIntegrityServiceTest
         String seed = "abcde";
         Map<String, DataElement> dataElements = createRandomDataElements(6, seed);
 
-        DataSet dataSet1 = rnd.randomObject( DataSet.class, "periodType", "workflow" );
+        DataSet dataSet1 = rnd.randomObject( DataSet.class );
         dataSet1.setPeriodType( PeriodType.getPeriodTypeFromIsoString( "2011" ) );
         dataSet1.addDataSetElement( dataElements.get(seed + 1) );
         dataSet1.addDataSetElement( dataElements.get(seed + 2) );
         dataSet1.addDataSetElement( dataElements.get(seed + 3) );
         dataSet1.addDataSetElement( dataElements.get(seed + 4) );
 
-        DataSet dataSet2 = rnd.randomObject( DataSet.class, "periodType", "workflow" );
+        DataSet dataSet2 = rnd.randomObject( DataSet.class  );
         dataSet2.setPeriodType( PeriodType.getByIndex( 5 ) );
         dataSet2.addDataSetElement( dataElements.get(seed + 4) );
         dataSet2.addDataSetElement( dataElements.get(seed + 5) );
@@ -338,17 +338,16 @@ public class DataIntegrityServiceTest
     @Test
     public void testGetDataElementsAssignedToDataSetsWithDifferentPeriodTypeNoResult()
     {
-
         String seed = "abcde";
         Map<String, DataElement> dataElements = createRandomDataElements(6, seed);
 
-        DataSet dataSet1 = rnd.randomObject( DataSet.class, "periodType", "workflow" );
+        DataSet dataSet1 = rnd.randomObject( DataSet.class );
         dataSet1.setPeriodType( PeriodType.getPeriodTypeFromIsoString( "2011" ) );
         dataSet1.addDataSetElement( dataElements.get(seed + 1) );
         dataSet1.addDataSetElement( dataElements.get(seed + 2) );
         dataSet1.addDataSetElement( dataElements.get(seed + 3) );
 
-        DataSet dataSet2 = rnd.randomObject( DataSet.class, "periodType", "workflow" );
+        DataSet dataSet2 = rnd.randomObject( DataSet.class  );
         dataSet2.setPeriodType( PeriodType.getByIndex( 5 ) );
         dataSet2.addDataSetElement( dataElements.get(seed + 4) );
         dataSet2.addDataSetElement( dataElements.get(seed + 5) );
@@ -521,7 +520,7 @@ public class DataIntegrityServiceTest
         programIndicator.setFilter( "1 < 2" );
 
         when( programIndicatorService.filterIsValid( anyString() ) ).thenReturn( true );
-        when( programIndicatorService.getAllProgramIndicators() ).thenReturn( Arrays.asList( programIndicator ) );
+        when( programIndicatorService.getAllProgramIndicators() ).thenReturn( Collections.singletonList( programIndicator ) );
 
         Map<ProgramIndicator, String> invalidExpressions = subject.getInvalidProgramIndicatorFilters();
 
