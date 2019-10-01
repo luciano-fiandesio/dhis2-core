@@ -42,9 +42,7 @@ import org.hisp.dhis.analytics.DataQueryParams;
 import org.hisp.dhis.analytics.DataQueryService;
 import org.hisp.dhis.common.DataQueryRequest;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
-import org.hisp.dhis.organisationunit.OrganisationUnitGroupService;
 import org.hisp.dhis.random.BeanRandomizer;
-import org.hisp.dhis.render.RenderService;
 import org.hisp.dhis.user.CurrentUserService;
 import org.hisp.dhis.user.User;
 import org.hisp.dhis.webapi.utils.ContextUtils;
@@ -61,20 +59,13 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  */
 public class GeoFeatureControllerTest
 {
-
     private MockMvc mockMvc;
 
     @Mock
     private DataQueryService dataQueryService;
 
     @Mock
-    private OrganisationUnitGroupService organisationUnitGroupService;
-
-    @Mock
     private CurrentUserService currentUserService;
-
-    @Mock
-    private RenderService renderService;
 
     private BeanRandomizer beanRandomizer = new BeanRandomizer();
 
@@ -124,7 +115,9 @@ public class GeoFeatureControllerTest
 
     private OrganisationUnit createOrgUnitWithoutCoordinates()
     {
-        return beanRandomizer.randomObject( OrganisationUnit.class );
+        OrganisationUnit ou =  beanRandomizer.randomObject( OrganisationUnit.class );
+        ou.setGeometry( null );
+        return ou;
     }
 
     private OrganisationUnit createOrgUnitWithCoordinates()

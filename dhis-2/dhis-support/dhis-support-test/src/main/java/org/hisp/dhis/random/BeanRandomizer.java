@@ -79,6 +79,7 @@ public class BeanRandomizer
         DEFAULTS.excludeField( named( "user" ) );
         DEFAULTS.excludeField( named( "textPattern" ) );
         DEFAULTS.excludeField( named( "cacheAttributeValues" ) );
+        DEFAULTS.excludeField( named( "userCredentials" ) );
 
         rand = new EasyRandom( DEFAULTS );
     }
