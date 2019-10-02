@@ -53,12 +53,11 @@ public class TrackedEntityAttributeRepository {
         this.sessionFactory = sessionFactory;
     }
 
-    public Set<TrackedEntityAttribute> getTrackedEntityAttributesByTrackedEntityTypes(
-        List<TrackedEntityType> trackedEntityTypes )
+    public Set<TrackedEntityAttribute> getTrackedEntityAttributesByTrackedEntityTypes()
     {
         Query query = sessionFactory.getCurrentSession()
-                .createQuery("select tet.trackedEntityTypeAttributes from TrackedEntityType tet");
-        return new HashSet<>(query.list());
+            .createQuery( "select tet.trackedEntityTypeAttributes from TrackedEntityType tet" );
+        return new HashSet<>( query.list() );
     }
 
     public Map<Program, Set<TrackedEntityAttribute>> getTrackedEntityAttributesByProgram() {

@@ -201,7 +201,7 @@ public abstract class AbstractTrackedEntityInstanceService
 
         List<TrackedEntityType> trackedEntityTypes = manager.getAll( TrackedEntityType.class );
 
-        Set<TrackedEntityAttribute> trackedEntityTypeAttributes = trackedEntityAttributeRepository.getTrackedEntityAttributesByTrackedEntityTypes(trackedEntityTypes);
+        Set<TrackedEntityAttribute> trackedEntityTypeAttributes = trackedEntityAttributeRepository.getTrackedEntityAttributesByTrackedEntityTypes();
         //trackedEntityTypes.stream().collect( Collectors.toList() )
             //.stream().map( TrackedEntityType::getTrackedEntityAttributes ).flatMap( Collection::stream ).collect( Collectors.toSet() );
         Map<Program, Set<TrackedEntityAttribute>> teaByProgram = trackedEntityAttributeRepository.getTrackedEntityAttributesByProgram();
@@ -1410,7 +1410,7 @@ public abstract class AbstractTrackedEntityInstanceService
 
         if ( params.isDataSynchronizationQuery() )
         {
-            List<String> programs = trackedEntityInstance.getEnrollments().stream().map( e -> e.getProgram() ).collect( Collectors.toList() );
+            List<String> programs = trackedEntityInstance.getEnrollments().stream().map(Enrollment::getProgram).collect( Collectors.toList() );
 
             IdSchemes idSchemes = new IdSchemes();
             for ( String programUid : programs )
@@ -1420,25 +1420,25 @@ public abstract class AbstractTrackedEntityInstanceService
             }
         }
 
-        for ( TrackedEntityAttributeValue attributeValue : daoTrackedEntityInstance.getTrackedEntityAttributeValues() )
-        {
-            if ( readableAttributesCopy.contains( attributeValue.getAttribute() ) )
-            {
-                Attribute attribute = new Attribute();
-
-                attribute.setCreated( DateUtils.getIso8601NoTz( attributeValue.getCreated() ) );
-                attribute.setLastUpdated( DateUtils.getIso8601NoTz( attributeValue.getLastUpdated() ) );
-                attribute.setDisplayName( attributeValue.getAttribute().getDisplayName() );
-                attribute.setAttribute( attributeValue.getAttribute().getUid() );
-                attribute.setValueType( attributeValue.getAttribute().getValueType() );
-                attribute.setCode( attributeValue.getAttribute().getCode() );
-                attribute.setValue( attributeValue.getValue() );
-                attribute.setStoredBy( attributeValue.getStoredBy() );
-                attribute.setSkipSynchronization( attributeValue.getAttribute().getSkipSynchronization() );
-
-                trackedEntityInstance.getAttributes().add( attribute );
-            }
-        }
+//        for ( TrackedEntityAttributeValue attributeValue : daoTrackedEntityInstance.getTrackedEntityAttributeValues() )
+//        {
+//            if ( readableAttributesCopy.contains( attributeValue.getAttribute() ) )
+//            {
+//                Attribute attribute = new Attribute();
+//
+//                attribute.setCreated( DateUtils.getIso8601NoTz( attributeValue.getCreated() ) );
+//                attribute.setLastUpdated( DateUtils.getIso8601NoTz( attributeValue.getLastUpdated() ) );
+//                attribute.setDisplayName( attributeValue.getAttribute().getDisplayName() );
+//                attribute.setAttribute( attributeValue.getAttribute().getUid() );
+//                attribute.setValueType( attributeValue.getAttribute().getValueType() );
+//                attribute.setCode( attributeValue.getAttribute().getCode() );
+//                attribute.setValue( attributeValue.getValue() );
+//                attribute.setStoredBy( attributeValue.getStoredBy() );
+//                attribute.setSkipSynchronization( attributeValue.getAttribute().getSkipSynchronization() );
+//
+//                trackedEntityInstance.getAttributes().add( attribute );
+//            }
+//        }
 
         return trackedEntityInstance;
     }

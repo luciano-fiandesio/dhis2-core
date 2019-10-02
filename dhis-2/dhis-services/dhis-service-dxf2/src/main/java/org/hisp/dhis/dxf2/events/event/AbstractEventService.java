@@ -32,6 +32,9 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.cache2k.Cache;
+import org.cache2k.Cache2kBuilder;
+import org.cache2k.integration.CacheLoader;
 import org.hibernate.SessionFactory;
 import org.hisp.dhis.category.CategoryCombo;
 import org.hisp.dhis.category.CategoryOption;
@@ -128,6 +131,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -139,6 +143,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.hisp.dhis.dxf2.events.event.EventSearchParams.*;
@@ -147,7 +152,6 @@ import static org.hisp.dhis.system.notification.NotificationLevel.ERROR;
 /**
  * @author Morten Olav Hansen <mortenoh@gmail.com>
  */
-@Transactional
 public abstract class AbstractEventService
     implements EventService
 {
@@ -281,10 +285,25 @@ public abstract class AbstractEventService
 
     private CachingMap<String, User> userCache = new CachingMap<>();
 
+    private Cache<String, DataElement> dataElementCache2 = new Cache2kBuilder<String, DataElement>() {}
+        .expireAfterWrite( 100, TimeUnit.MINUTES )
+        .resilienceDuration( 30, TimeUnit.SECONDS )
+        //.refreshAhead( true )
+//        .loader(new CacheLoader<String, DataElement>() {
+//            @Override
+//            public DataElement load( String key ) {
+//                System.out.println("fetching dataelement : " + key);
+//                DataElement dataElement = manager.getObject( DataElement.class, IdScheme.UID, key );
+//                System.out.println( dataElement.getUid() );
+//                return dataElement;
+//            }
+//        }) 
+        .build();
+    
     // -------------------------------------------------------------------------
     // CREATE
     // -------------------------------------------------------------------------
-
+    @Transactional
     @Override
     public ImportSummaries processEventImport( List<Event> events, ImportOptions importOptions, JobConfiguration jobId )
     {
@@ -367,6 +386,7 @@ public abstract class AbstractEventService
         return importSummaries;
     }
 
+    @Transactional
     @Override
     public ImportSummaries addEvents( List<Event> events, ImportOptions importOptions, boolean clearSession )
     {
@@ -395,6 +415,7 @@ public abstract class AbstractEventService
         return importSummaries;
     }
 
+    @Transactional
     @Override
     public ImportSummaries addEvents( List<Event> events, ImportOptions importOptions, JobConfiguration jobId )
     {
@@ -420,6 +441,7 @@ public abstract class AbstractEventService
         }
     }
 
+    @Transactional
     @Override
     public ImportSummary addEvent( Event event, ImportOptions importOptions, boolean bulkImport )
     {
@@ -586,7 +608,7 @@ public abstract class AbstractEventService
     // -------------------------------------------------------------------------
     // READ
     // -------------------------------------------------------------------------
-
+    @Transactional(readOnly = true)
     @Override
     public Events getEvents( EventSearchParams params )
     {
@@ -632,7 +654,7 @@ public abstract class AbstractEventService
 
         return events;
     }
-
+    @Transactional(readOnly = true)
     @Override
     public Grid getEventsGrid( EventSearchParams params )
     {
@@ -753,7 +775,7 @@ public abstract class AbstractEventService
 
         return grid;
     }
-
+    @Transactional(readOnly = true)
     @Override
     public int getAnonymousEventReadyForSynchronizationCount( Date skipChangedBefore )
     {
@@ -784,7 +806,7 @@ public abstract class AbstractEventService
         anonymousEvents.setEvents( events );
         return anonymousEvents;
     }
-
+    @Transactional(readOnly = true)
     @Override
     public EventRows getEventRows( EventSearchParams params )
     {
@@ -808,13 +830,14 @@ public abstract class AbstractEventService
 
         return eventRows;
     }
-
+    @Transactional(readOnly = true)
     @Override
     public Event getEvent( ProgramStageInstance programStageInstance )
     {
         return getEvent( programStageInstance, false, false );
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Event getEvent( ProgramStageInstance programStageInstance, boolean isSynchronizationQuery, boolean skipOwnershipCheck )
     {
@@ -875,20 +898,20 @@ public abstract class AbstractEventService
             event.setOrgUnitName( ou.getName() );
         }
 
-        Program program = programStageInstance.getProgramInstance().getProgram();
-
-        event.setProgram( program.getUid() );
-        event.setEnrollment( programStageInstance.getProgramInstance().getUid() );
-        event.setProgramStage( programStageInstance.getProgramStage().getUid() );
-        event.setAttributeOptionCombo( programStageInstance.getAttributeOptionCombo().getUid() );
-        event.setAttributeCategoryOptions( String.join( ";", programStageInstance.getAttributeOptionCombo()
-            .getCategoryOptions().stream().map( CategoryOption::getUid ).collect( Collectors.toList() ) ) );
-
-        if ( programStageInstance.getProgramInstance().getEntityInstance() != null )
-        {
-            event.setTrackedEntityInstance( programStageInstance.getProgramInstance().getEntityInstance().getUid() );
-        }
-
+//        Program program = programStageInstance.getProgramInstance().getProgram();
+//
+//        event.setProgram( program.getUid() );
+//        event.setEnrollment( programStageInstance.getProgramInstance().getUid() );
+//        event.setProgramStage( programStageInstance.getProgramStage().getUid() );
+//        event.setAttributeOptionCombo( programStageInstance.getAttributeOptionCombo().getUid() );
+//        event.setAttributeCategoryOptions( String.join( ";", programStageInstance.getAttributeOptionCombo()
+//            .getCategoryOptions().stream().map( CategoryOption::getUid ).collect( Collectors.toList() ) ) );
+//
+//        if ( programStageInstance.getProgramInstance().getEntityInstance() != null )
+//        {
+//            event.setTrackedEntityInstance( programStageInstance.getProgramInstance().getEntityInstance().getUid() );
+//        }
+//
         Collection<EventDataValue> dataValues;
         if ( !isSynchronizationQuery )
         {
@@ -908,14 +931,21 @@ public abstract class AbstractEventService
 
         for ( EventDataValue dataValue : dataValues )
         {
-//            DataElement dataElement = getDataElement( IdScheme.UID, dataValue.getDataElement() );
-//
-//            errors = trackerAccessManager.canRead( user, programStageInstance, dataElement, true );
-//
-//            if ( !errors.isEmpty() )
-//            {
-//                continue;
-//            }
+            //DataElement dataElement = getDataElement( IdScheme.UID, dataValue.getDataElement() );
+            // LUCIANO
+            DataElement dataElement = dataElementCache2.get( dataValue.getDataElement() );
+            if ( dataElement == null )
+            {
+                DataElement de = manager.getObject( DataElement.class, IdScheme.UID, dataValue.getDataElement() );
+                dataElementCache2.put( dataValue.getDataElement(), de );
+            }
+            
+           // errors = trackerAccessManager.canRead( user, programStageInstance, dataElement, true );
+
+            if ( !errors.isEmpty() )
+            {
+                continue;
+            }
 
             DataValue value = new DataValue();
             value.setCreated( DateUtils.getIso8601NoTz( dataValue.getCreated() ) );
@@ -927,29 +957,29 @@ public abstract class AbstractEventService
 
             event.getDataValues().add( value );
         }
-
-        List<TrackedEntityComment> comments = programStageInstance.getComments();
-
-        for ( TrackedEntityComment comment : comments )
-        {
-            Note note = new Note();
-
-            note.setNote( comment.getUid() );
-            note.setValue( comment.getCommentText() );
-            note.setStoredBy( comment.getCreator() );
-            note.setStoredDate( DateUtils.getIso8601NoTz( comment.getCreated() ) );
-
-            event.getNotes().add( note );
-        }
-
-        event.setRelationships( programStageInstance.getRelationshipItems().stream()
-            .map( ( r ) -> relationshipService.getRelationship( r.getRelationship(), RelationshipParams.FALSE, user ) )
-            .collect( Collectors.toSet() )
-        );
+//
+//        List<TrackedEntityComment> comments = programStageInstance.getComments();
+//
+//        for ( TrackedEntityComment comment : comments )
+//        {
+//            Note note = new Note();
+//
+//            note.setNote( comment.getUid() );
+//            note.setValue( comment.getCommentText() );
+//            note.setStoredBy( comment.getCreator() );
+//            note.setStoredDate( DateUtils.getIso8601NoTz( comment.getCreated() ) );
+//
+//            event.getNotes().add( note );
+//        }
+//
+//        event.setRelationships( programStageInstance.getRelationshipItems().stream()
+//            .map( ( r ) -> relationshipService.getRelationship( r.getRelationship(), RelationshipParams.FALSE, user ) )
+//            .collect( Collectors.toSet() )
+//        );
 
         return event;
     }
-
+    @Transactional(readOnly = true)
     @Override
     public EventSearchParams getFromUrl( String program, String programStage, ProgramStatus programStatus,
         Boolean followUp, String orgUnit, OrganisationUnitSelectionMode orgUnitSelectionMode,
@@ -1093,7 +1123,7 @@ public abstract class AbstractEventService
     // -------------------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------------------
-
+    @Transactional
     @Override
     public ImportSummaries updateEvents( List<Event> events, ImportOptions importOptions, boolean singleValue, boolean clearSession )
     {
@@ -1122,12 +1152,14 @@ public abstract class AbstractEventService
         return importSummaries;
     }
 
+    @Transactional
     @Override
     public ImportSummary updateEvent( Event event, boolean singleValue, boolean bulkUpdate )
     {
         return updateEvent( event, singleValue, null, bulkUpdate );
     }
 
+    @Transactional
     @Override
     public ImportSummary updateEvent( Event event, boolean singleValue, ImportOptions importOptions, boolean bulkUpdate )
     {
@@ -1401,6 +1433,7 @@ public abstract class AbstractEventService
         }
     }
 
+    @Transactional
     @Override
     public void updateEventForNote( Event event )
     {
@@ -1420,6 +1453,7 @@ public abstract class AbstractEventService
         updateTrackedEntityInstance( programStageInstance, currentUser, false );
     }
 
+    @Transactional
     @Override
     public void updateEventForEventDate( Event event )
     {
@@ -1472,6 +1506,7 @@ public abstract class AbstractEventService
         programStageInstanceService.updateProgramStageInstance( programStageInstance );
     }
 
+    @Transactional
     @Override
     public void updateEventsSyncTimestamp( List<String> eventsUIDs, Date lastSynchronized )
     {
@@ -1482,6 +1517,7 @@ public abstract class AbstractEventService
     // DELETE
     // -------------------------------------------------------------------------
 
+    @Transactional
     @Override
     public ImportSummary deleteEvent( String uid )
     {
@@ -1516,6 +1552,7 @@ public abstract class AbstractEventService
         }
     }
 
+    @Transactional
     @Override
     public ImportSummaries deleteEvents( List<String> uids, boolean clearSession )
     {
@@ -2445,7 +2482,7 @@ public abstract class AbstractEventService
         return importOptions;
     }
 
-    protected void reloadUser( ImportOptions importOptions )
+    private void reloadUser(ImportOptions importOptions)
     {
         if ( importOptions == null || importOptions.getUser() == null )
         {
