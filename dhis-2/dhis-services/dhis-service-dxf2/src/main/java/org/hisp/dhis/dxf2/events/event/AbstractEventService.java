@@ -908,14 +908,14 @@ public abstract class AbstractEventService
 
         for ( EventDataValue dataValue : dataValues )
         {
-            DataElement dataElement = getDataElement( IdScheme.UID, dataValue.getDataElement() );
-
-            errors = trackerAccessManager.canRead( user, programStageInstance, dataElement, true );
-
-            if ( !errors.isEmpty() )
-            {
-                continue;
-            }
+//            DataElement dataElement = getDataElement( IdScheme.UID, dataValue.getDataElement() );
+//
+//            errors = trackerAccessManager.canRead( user, programStageInstance, dataElement, true );
+//
+//            if ( !errors.isEmpty() )
+//            {
+//                continue;
+//            }
 
             DataValue value = new DataValue();
             value.setCreated( DateUtils.getIso8601NoTz( dataValue.getCreated() ) );
