@@ -28,8 +28,40 @@ package org.hisp.dhis.dxf2.events.trackedentity.validation;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Predicate;
+
+import org.hisp.dhis.dxf2.importsummary.ImportConflict;
+
 /**
  * @author Luciano Fiandesio
  */
-public class DefaultValidator {
+public class DefaultValidator<T>
+    implements
+    ImportValidator<T>
+{
+    private Predicate<T> predicate;
+
+    private String onErrorMessage;
+
+    public static <T> DefaultValidator<T> from( Predicate<T> predicate, String onErrorMessage )
+    {
+        return new DefaultValidator<>( predicate, onErrorMessage );
+    }
+
+    private DefaultValidator( Predicate<T> predicate, String onErrorMessage )
+    {
+        this.predicate = predicate;
+        this.onErrorMessage = onErrorMessage;
+    }
+
+    @Override
+    public Set<ImportConflict> validate( T entity )
+    {
+        Set<ImportConflict> error = new HashSet<>();
+        error.add( new ImportConflict( "", onErrorMessage ) );
+
+        return predicate.test( entity ) ? new HashSet<>() : error;
+    }
 }

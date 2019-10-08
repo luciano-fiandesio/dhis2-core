@@ -1209,24 +1209,24 @@ public abstract class AbstractEnrollmentService
 
         for ( TrackedEntityAttribute trackedEntityAttribute : mandatoryMap.keySet() )
         {
-            Boolean mandatory = mandatoryMap.get( trackedEntityAttribute );
+            if (!trackedEntityAttribute.isUnique()) {
+                Boolean mandatory = mandatoryMap.get(trackedEntityAttribute);
 
-            if ( mandatory && doValidationOfMandatoryAttributes( importOptions.getUser() ) && !attributeValueMap.containsKey( trackedEntityAttribute.getUid() ) )
-            {
-                importConflicts.add( new ImportConflict( "Attribute.attribute", "Missing mandatory attribute "
-                    + trackedEntityAttribute.getUid() ) );
-                continue;
+                if (mandatory && doValidationOfMandatoryAttributes(importOptions.getUser()) && !attributeValueMap.containsKey(trackedEntityAttribute.getUid())) {
+                    importConflicts.add(new ImportConflict("Attribute.attribute", "Missing mandatory attribute "
+                            + trackedEntityAttribute.getUid()));
+                    continue;
+                }
+
+//                if (trackedEntityAttribute.isUnique()) {
+//                    OrganisationUnit organisationUnit = manager.get(OrganisationUnit.class, instance.getOrgUnit());
+//
+//                    checkAttributeUniquenessWithinScope(trackedEntityInstance, trackedEntityAttribute,
+//                            attributeValueMap.get(trackedEntityAttribute.getUid()), organisationUnit, importConflicts);
+//                }
+
+                attributeValueMap.remove(trackedEntityAttribute.getUid());
             }
-
-            if ( trackedEntityAttribute.isUnique() )
-            {
-                OrganisationUnit organisationUnit = manager.get( OrganisationUnit.class, instance.getOrgUnit() );
-
-                checkAttributeUniquenessWithinScope( trackedEntityInstance, trackedEntityAttribute,
-                    attributeValueMap.get( trackedEntityAttribute.getUid() ), organisationUnit, importConflicts );
-            }
-
-            attributeValueMap.remove( trackedEntityAttribute.getUid() );
         }
 
         if ( !attributeValueMap.isEmpty() )

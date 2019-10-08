@@ -28,8 +28,15 @@ package org.hisp.dhis.dxf2.events.trackedentity.validation;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.util.Objects;
+
 /**
  * @author Luciano Fiandesio
  */
 public class ImportValidatorHelper {
+
+    //public static ImportValidator<String> notNull = DefaultValidator.from(Objects::nonNull, "must not be null.");
+
+    public static ImportValidator<Object> notNull = DefaultValidator.from(Objects::nonNull, "must not be null.");
+
 }

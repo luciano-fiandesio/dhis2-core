@@ -318,10 +318,10 @@ public class DefaultProgramInstanceService
 
         List<ProgramInstance> programInstances = programInstanceStore.getProgramInstances( params );
 
-        if ( user != null )
-        {
-            addProrgamInstanceAudits( programInstances, user.getUsername() );
-        }
+//        if ( user != null )
+//        {
+//            addProrgamInstanceAudits( programInstances, user.getUsername() );
+//        }
 
         return programInstances;
     }

@@ -28,8 +28,42 @@ package org.hisp.dhis.dxf2.events.trackedentity.validation;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
+
+import org.hisp.dhis.dxf2.events.trackedentity.TrackedEntityInstance;
+import org.hisp.dhis.dxf2.importsummary.ImportConflict;
+
+import com.google.common.base.Strings;
+
 /**
  * @author Luciano Fiandesio
  */
-public class TrackedEntityInstanceValidator {
+
+public interface TrackedEntityInstanceValidator
+    extends
+    Function<TrackedEntityInstance, Set<ImportConflict>>
+{
+
+    static TrackedEntityInstanceValidator hasTrackedEntityType()
+    {
+        return tei -> Strings.isNullOrEmpty( tei.getTrackedEntityType() ) ? new HashSet<>() : new HashSet<>();
+    }
+
+    static TrackedEntityInstanceValidator trackedEntityTypeExists()
+    {
+        return tei -> Strings.isNullOrEmpty( tei.getTrackedEntityType() ) ? new HashSet<>() : new HashSet<>();
+    }
+
+    default TrackedEntityInstanceValidator and( TrackedEntityInstanceValidator other )
+    {
+        return tei -> {
+            Set<ImportConflict> first = this.apply( tei );
+            Set<ImportConflict> second = other.apply( tei );
+            first.addAll( second );
+            return first;
+        };
+    }
+
 }

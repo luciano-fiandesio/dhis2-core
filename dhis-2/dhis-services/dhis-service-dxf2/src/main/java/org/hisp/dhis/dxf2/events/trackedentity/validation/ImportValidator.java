@@ -28,10 +28,35 @@ package org.hisp.dhis.dxf2.events.trackedentity.validation;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.util.Set;
+
+import org.hisp.dhis.dxf2.importsummary.ImportConflict;
+
 /**
  * @author Luciano Fiandesio
  */
-public  interface Validator<T> {
+@FunctionalInterface
+public interface ImportValidator<T>
+{
+    Set<ImportConflict> validate( T entity );
 
+    default ImportValidator<T> and( ImportValidator<T> other )
+    {
+        return ( entity ) -> {
 
+            Set<ImportConflict> firstResult = this.validate( entity );
+
+            return !firstResult.isEmpty() ? firstResult : other.validate( entity );
+        };
+    }
+
+    default ImportValidator<T> or( ImportValidator<T> other )
+    {
+        return ( entity ) -> {
+
+            Set<ImportConflict> firstResult = this.validate( entity );
+
+            return firstResult.isEmpty() ? firstResult : other.validate( entity );
+        };
+    }
 }

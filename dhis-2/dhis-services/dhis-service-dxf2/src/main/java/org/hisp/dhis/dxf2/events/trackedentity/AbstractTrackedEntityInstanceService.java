@@ -28,6 +28,7 @@ package org.hisp.dhis.dxf2.events.trackedentity;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import static org.hisp.dhis.dxf2.events.trackedentity.validation.TrackedEntityInstanceValidator.*;
 import static org.hisp.dhis.system.notification.NotificationLevel.ERROR;
 
 import java.io.IOException;
@@ -51,6 +52,7 @@ import org.hisp.dhis.dxf2.events.TrackerAccessManager;
 import org.hisp.dhis.dxf2.events.enrollment.Enrollment;
 import org.hisp.dhis.dxf2.events.enrollment.EnrollmentService;
 import org.hisp.dhis.dxf2.events.repository.TrackedEntityAttributeRepository;
+import org.hisp.dhis.dxf2.events.trackedentity.validation.TrackedEntityInstanceValidator;
 import org.hisp.dhis.dxf2.importsummary.ImportConflict;
 import org.hisp.dhis.dxf2.importsummary.ImportStatus;
 import org.hisp.dhis.dxf2.importsummary.ImportSummaries;
@@ -472,8 +474,13 @@ public abstract class AbstractTrackedEntityInstanceService
 
         dtoEntityInstance.trimValuesToNull();
 
-        Set<ImportConflict> importConflicts = new HashSet<>();
-        importConflicts.addAll( checkTrackedEntityType( dtoEntityInstance, importOptions ) );
+        //        // LUCIANO
+//        hasTrackedEntityType()
+//            .and( trackedEntityTypeExists() )
+//            .apply( dtoEntityInstance );
+
+        Set<ImportConflict> importConflicts = new HashSet<>(checkTrackedEntityType(dtoEntityInstance, importOptions));
+
         checkAttributes( dtoEntityInstance, importOptions, importConflicts, false );
 
         if ( !importConflicts.isEmpty() )
@@ -1179,6 +1186,7 @@ public abstract class AbstractTrackedEntityInstanceService
             .validateAttributeUniquenessWithinScope( trackedEntityAttribute, value, entityInstance,
                 organisationUnit );
 
+
         if ( errorMessage != null )
         {
             importConflicts.add( new ImportConflict( "Attribute.value", errorMessage ) );
@@ -1206,38 +1214,37 @@ public abstract class AbstractTrackedEntityInstanceService
 
         for ( Attribute attribute : dtoEntityInstance.getAttributes() )
         {
+
             if ( StringUtils.isNotEmpty( attribute.getValue() ) )
             {
                 //Cache was populated in prepareCaches, so I should hit the cache
                 TrackedEntityAttribute daoEntityAttribute = getTrackedEntityAttribute( importOptions.getIdSchemes(),
                     attribute.getAttribute() );
 
-                if ( daoEntityAttribute == null )
-                {
-                    importConflicts.add( new ImportConflict( "Attribute.attribute", "Invalid attribute " + attribute.getAttribute() ) );
-                    continue;
-                }
+                if (!daoEntityAttribute.isUnique()) {
+                    if (daoEntityAttribute == null) {
+                        importConflicts.add(new ImportConflict("Attribute.attribute", "Invalid attribute " + attribute.getAttribute()));
+                        continue;
+                    }
 
-                if ( daoEntityAttribute.isGenerated() && daoEntityAttribute.getTextPattern() != null && !importOptions.isSkipPatternValidation() )
-                {
-                    validateTextPatternValue( daoEntityAttribute, attribute.getValue(), importConflicts );
-                }
+                    if (daoEntityAttribute.isGenerated() && daoEntityAttribute.getTextPattern() != null && !importOptions.isSkipPatternValidation()) {
+                        validateTextPatternValue(daoEntityAttribute, attribute.getValue(), importConflicts);
+                    }
 
-                if ( daoEntityAttribute.isUnique() )
-                {
-                    //Cache was populated in prepareCaches, so I should hit the cache
-                    OrganisationUnit organisationUnit = getOrganisationUnit( importOptions.getIdSchemes(),
-                        dtoEntityInstance.getOrgUnit() );
-                    checkAttributeUniquenessWithinScope( daoEntityInstance, daoEntityAttribute, attribute.getValue(), organisationUnit, importConflicts );
-                }
+//                    if (daoEntityAttribute.isUnique()) {
+//                        //Cache was populated in prepareCaches, so I should hit the cache
+//                        OrganisationUnit organisationUnit = getOrganisationUnit(importOptions.getIdSchemes(),
+//                                dtoEntityInstance.getOrgUnit());
+//                        checkAttributeUniquenessWithinScope(daoEntityInstance, daoEntityAttribute, attribute.getValue(), organisationUnit, importConflicts);
+//                    }
 
-                validateAttributeType( attribute, importOptions, importConflicts );
+                    validateAttributeType(attribute, importOptions, importConflicts);
 
-                if ( daoEntityAttribute.getValueType().isFile() && checkAssigned( attribute, fileValues ) )
-                {
-                    importConflicts.add( new ImportConflict( "Attribute.value",
-                        String.format( "File resource with uid '%s' has already been assigned to a different object",
-                            attribute.getValue() ) ) );
+                    if (daoEntityAttribute.getValueType().isFile() && checkAssigned(attribute, fileValues)) {
+                        importConflicts.add(new ImportConflict("Attribute.value",
+                                String.format("File resource with uid '%s' has already been assigned to a different object",
+                                        attribute.getValue())));
+                    }
                 }
             }
         }
