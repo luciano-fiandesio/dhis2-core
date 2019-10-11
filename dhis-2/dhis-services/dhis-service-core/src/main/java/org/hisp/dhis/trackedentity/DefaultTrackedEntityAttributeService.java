@@ -28,7 +28,13 @@ package org.hisp.dhis.trackedentity;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import com.google.common.collect.ImmutableSet;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+import javax.imageio.ImageIO;
+
 import org.apache.commons.lang3.StringUtils;
 import org.hisp.dhis.common.QueryItem;
 import org.hisp.dhis.common.QueryOperator;
@@ -36,10 +42,12 @@ import org.hisp.dhis.common.ValueType;
 import org.hisp.dhis.fileresource.FileResource;
 import org.hisp.dhis.fileresource.FileResourceService;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
+import org.hisp.dhis.organisationunit.OrganisationUnitStore;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.program.ProgramService;
 import org.hisp.dhis.security.acl.AclService;
 import org.hisp.dhis.system.util.MathUtils;
+import org.hisp.dhis.trackedentityattributevalue.TrackedEntityAttributeValueStore;
 import org.hisp.dhis.user.CurrentUserService;
 import org.hisp.dhis.user.User;
 import org.hisp.dhis.user.UserService;
@@ -48,14 +56,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
-import javax.imageio.ImageIO;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * @author Abyot Asalefew
@@ -81,11 +82,15 @@ public class DefaultTrackedEntityAttributeService
     private final CurrentUserService currentUserService;
     private final AclService aclService;
     private final TrackedEntityAttributeStore trackedEntityAttributeStore;
+    // TODO move these two new depenencies to a separate service (TeaUniqueService)
+    private final TrackedEntityAttributeValueStore trackedEntityAttributeValueStore;
+    private final OrganisationUnitStore organisationUnitStore;
 
-    public DefaultTrackedEntityAttributeService ( TrackedEntityAttributeStore attributeStore,
+    public DefaultTrackedEntityAttributeService( TrackedEntityAttributeStore attributeStore,
         ProgramService programService, TrackedEntityTypeService trackedEntityTypeService,
         FileResourceService fileResourceService, UserService userService, CurrentUserService currentUserService,
-        AclService aclService, TrackedEntityAttributeStore trackedEntityAttributeStore )
+        AclService aclService, TrackedEntityAttributeStore trackedEntityAttributeStore,
+        TrackedEntityAttributeValueStore trackedEntityAttributeValueStore, OrganisationUnitStore organisationUnitStore )
     {
         checkNotNull( attributeStore );
         checkNotNull( programService );
@@ -95,6 +100,8 @@ public class DefaultTrackedEntityAttributeService
         checkNotNull( currentUserService );
         checkNotNull( aclService );
         checkNotNull( trackedEntityAttributeStore );
+        checkNotNull( trackedEntityAttributeValueStore );
+        checkNotNull( organisationUnitStore );
 
         this.attributeStore = attributeStore;
         this.programService = programService;
@@ -104,6 +111,8 @@ public class DefaultTrackedEntityAttributeService
         this.currentUserService = currentUserService;
         this.aclService = aclService;
         this.trackedEntityAttributeStore = trackedEntityAttributeStore;
+        this.trackedEntityAttributeValueStore = trackedEntityAttributeValueStore;
+        this.organisationUnitStore = organisationUnitStore;
     }
 
     // -------------------------------------------------------------------------
@@ -304,6 +313,32 @@ public class DefaultTrackedEntityAttributeService
         return getAllTrackedEntityAttributes().stream().filter(TrackedEntityAttribute::isSystemWideUnique)
             .collect( Collectors.toList() );
     }
+
+    @Override
+    @Transactional( readOnly = true )
+    public Map<String, String> getUniqueValueForTrackedEntityAttributeMap(
+        TrackedEntityAttribute trackedEntityAttribute )
+    {
+        List<OrganisationUnit> orgUnits = organisationUnitStore.getAll();
+        Map<String, String> result = new HashMap<>();
+
+        for ( OrganisationUnit orgUnit : orgUnits )
+        {
+            try
+            {
+                this.trackedEntityAttributeValueStore
+                    .getUniqueValueForTrackedEntityAttribute( trackedEntityAttribute, orgUnit )
+                    .ifPresent( val -> result.put( orgUnit.getUid(), val ) );
+            }
+            catch ( Exception e )
+            {
+                // TODO handle error
+            }
+        }
+
+        return result;
+    }
+    
 
     private String validateImage( String uid )
     {

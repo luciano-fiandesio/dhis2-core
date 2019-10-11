@@ -28,12 +28,13 @@ package org.hisp.dhis.trackedentity;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.user.User;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * @author Abyot Asalefew
@@ -157,4 +158,14 @@ public interface TrackedEntityAttributeService
      * @return null if valid, a message if not
      */
     String validateValueType( TrackedEntityAttribute trackedEntityAttribute, String value );
+
+    /**
+     * Fetches a Map containing the unique value for the give
+     * {@see TrackedEntityAttribute} grouped by Org Unit
+     * 
+     * @param trackedEntityAttribute A globally unique Tracker Entity Attribute
+     * @return A Map, where key is Org Unit uid and value is the unique value for
+     *         the specified {@see TrackedEntityAttribute}
+     */
+    Map<String, String> getUniqueValueForTrackedEntityAttributeMap( TrackedEntityAttribute trackedEntityAttribute );
 }

@@ -28,11 +28,15 @@ package org.hisp.dhis.trackedentity;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import org.hisp.dhis.cache.unit.OrgUnitCacheUnit;
 import org.hisp.dhis.common.ValueType;
 import org.hisp.dhis.fileresource.FileResourceService;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
+import org.hisp.dhis.organisationunit.OrganisationUnitStore;
 import org.hisp.dhis.program.ProgramService;
 import org.hisp.dhis.security.acl.AclService;
+import org.hisp.dhis.trackedentityattributevalue.TrackedEntityAttributeValueService;
+import org.hisp.dhis.trackedentityattributevalue.TrackedEntityAttributeValueStore;
 import org.hisp.dhis.user.CurrentUserService;
 import org.hisp.dhis.user.UserService;
 import org.junit.Before;
@@ -81,6 +85,12 @@ public class TrackedEntityAttributeServiceTest
     @Mock
     private UserService userService;
 
+    @Mock
+    private TrackedEntityAttributeValueStore trackedEntityAttributeValueStore;
+
+    @Mock
+    private OrganisationUnitStore organisationUnitStore;
+
     private TrackedEntityAttributeService trackedEntityAttributeService;
 
     private TrackedEntityInstance teiPassedInPayload;
@@ -98,7 +108,7 @@ public class TrackedEntityAttributeServiceTest
     {
         trackedEntityAttributeService = new DefaultTrackedEntityAttributeService( attributeStore, programService,
             trackedEntityTypeService, fileResourceService, userService, currentUserService, aclService,
-            trackedEntityAttributeStore );
+            trackedEntityAttributeStore, trackedEntityAttributeValueStore,  organisationUnitStore);
 
         orgUnit = new OrganisationUnit( "orgUnitA" );
 

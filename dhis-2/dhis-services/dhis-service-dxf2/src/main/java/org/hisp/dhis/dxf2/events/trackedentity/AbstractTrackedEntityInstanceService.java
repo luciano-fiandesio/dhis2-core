@@ -28,7 +28,6 @@ package org.hisp.dhis.dxf2.events.trackedentity;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import static org.hisp.dhis.dxf2.events.trackedentity.validation.TrackedEntityInstanceValidator.*;
 import static org.hisp.dhis.system.notification.NotificationLevel.ERROR;
 
 import java.io.IOException;
@@ -38,10 +37,12 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hisp.dhis.common.CodeGenerator;
-import org.hisp.dhis.common.IdSchemes;
-import org.hisp.dhis.common.IdentifiableObjectManager;
-import org.hisp.dhis.common.IllegalQueryException;
+import org.hisp.dhis.cache.GlobalCache;
+import org.hisp.dhis.cache.key.SingleValueCacheKey;
+import org.hisp.dhis.cache.key.TeiOuScopedUniqueValueCacheKey;
+import org.hisp.dhis.cache.unit.OrgUnitCacheUnit;
+import org.hisp.dhis.cache.unit.TeiOuScopedUniqueAttributeCacheUnit;
+import org.hisp.dhis.common.*;
 import org.hisp.dhis.commons.collection.CachingMap;
 import org.hisp.dhis.commons.util.DebugUtils;
 import org.hisp.dhis.dbms.DbmsManager;
@@ -52,7 +53,6 @@ import org.hisp.dhis.dxf2.events.TrackerAccessManager;
 import org.hisp.dhis.dxf2.events.enrollment.Enrollment;
 import org.hisp.dhis.dxf2.events.enrollment.EnrollmentService;
 import org.hisp.dhis.dxf2.events.repository.TrackedEntityAttributeRepository;
-import org.hisp.dhis.dxf2.events.trackedentity.validation.TrackedEntityInstanceValidator;
 import org.hisp.dhis.dxf2.importsummary.ImportConflict;
 import org.hisp.dhis.dxf2.importsummary.ImportStatus;
 import org.hisp.dhis.dxf2.importsummary.ImportSummaries;
@@ -160,7 +160,8 @@ public abstract class AbstractTrackedEntityInstanceService
     @Autowired
     protected TrackedEntityAttributeRepository trackedEntityAttributeRepository;
 
-    private final CachingMap<String, OrganisationUnit> organisationUnitCache = new CachingMap<>();
+    @Autowired
+    protected GlobalCache globalCache;
 
     private final CachingMap<String, Program> programCache = new CachingMap<>();
 
@@ -1001,17 +1002,17 @@ public abstract class AbstractTrackedEntityInstanceService
 
     private void prepareCaches( List<TrackedEntityInstance> trackedEntityInstances, User user )
     {
-        Collection<String> orgUnits = trackedEntityInstances.stream().map( TrackedEntityInstance::getOrgUnit )
-            .collect( Collectors.toSet() );
-
-        if ( !orgUnits.isEmpty() )
-        {
-            Query query = Query.from( schemaService.getDynamicSchema( OrganisationUnit.class ) );
-            query.setUser( user );
-            query.add( Restrictions.in( "id", orgUnits ) );
-            queryService.query( query )
-                .forEach( ou -> organisationUnitCache.put( ou.getUid(), (OrganisationUnit) ou ) );
-        }
+//        Collection<String> orgUnits = trackedEntityInstances.stream().map( TrackedEntityInstance::getOrgUnit )
+//            .collect( Collectors.toSet() );
+//
+//        if ( !orgUnits.isEmpty() )
+//        {
+//            Query query = Query.from( schemaService.getDynamicSchema( OrganisationUnit.class ) );
+//            query.setUser( user );
+//            query.add( Restrictions.in( "id", orgUnits ) );
+//            queryService.query( query )
+//                .forEach( ou -> organisationUnitCache.put( ou.getUid(), (OrganisationUnit) ou ) );
+//        }
 
         Collection<String> trackedEntityAttributes = new HashSet<>();
         trackedEntityInstances
@@ -1111,8 +1112,12 @@ public abstract class AbstractTrackedEntityInstanceService
 
     private OrganisationUnit getOrganisationUnit( IdSchemes idSchemes, String id )
     {
-        return organisationUnitCache
-            .get( id, () -> manager.getObject( OrganisationUnit.class, idSchemes.getOrgUnitIdScheme(), id ) );
+        if ( idSchemes.getOrgUnitIdScheme().is( IdentifiableProperty.UID ) )
+        {
+            return this.globalCache.getCacheUnit( OrgUnitCacheUnit.class ).get( new SingleValueCacheKey( id ) );
+        }
+        // TODO
+        return manager.getObject( OrganisationUnit.class, idSchemes.getOrgUnitIdScheme(), id );
     }
 
     private Program getProgram( IdSchemes idSchemes, String id )
@@ -1193,6 +1198,25 @@ public abstract class AbstractTrackedEntityInstanceService
         }
     }
 
+    private void checkAttributeUniquenessWithinScopeWithCache( TrackedEntityAttribute trackedEntityAttribute,
+        String value, OrganisationUnit organisationUnit, Set<ImportConflict> importConflicts )
+    {
+        if ( value == null )
+        {
+            return;
+        }
+        final String uniqueValue = globalCache.getCacheUnit( TeiOuScopedUniqueAttributeCacheUnit.class )
+            .getAndPutIfMissing( new TeiOuScopedUniqueValueCacheKey( trackedEntityAttribute, organisationUnit ), value );
+
+        if ( uniqueValue != null )
+        {
+            String errorMessage = "Non-unique attribute value '" + value + "' for attribute "
+                + trackedEntityAttribute.getUid();
+
+            importConflicts.add( new ImportConflict( "Attribute.value", errorMessage ) );
+        }
+    }
+
     private void checkAttributes( TrackedEntityInstance dtoEntityInstance, ImportOptions importOptions,
         Set<ImportConflict> importConflicts, boolean teiExistsInDatabase )
     {
@@ -1221,22 +1245,27 @@ public abstract class AbstractTrackedEntityInstanceService
                 TrackedEntityAttribute daoEntityAttribute = getTrackedEntityAttribute( importOptions.getIdSchemes(),
                     attribute.getAttribute() );
 
+                if ( daoEntityAttribute == null )
+                {
+                    importConflicts.add(
+                        new ImportConflict( "Attribute.attribute", "Invalid attribute " + attribute.getAttribute() ) );
+                    continue;
+                }
                 if (!daoEntityAttribute.isUnique()) {
-                    if (daoEntityAttribute == null) {
-                        importConflicts.add(new ImportConflict("Attribute.attribute", "Invalid attribute " + attribute.getAttribute()));
-                        continue;
-                    }
-
+                    
                     if (daoEntityAttribute.isGenerated() && daoEntityAttribute.getTextPattern() != null && !importOptions.isSkipPatternValidation()) {
                         validateTextPatternValue(daoEntityAttribute, attribute.getValue(), importConflicts);
                     }
 
-//                    if (daoEntityAttribute.isUnique()) {
-//                        //Cache was populated in prepareCaches, so I should hit the cache
-//                        OrganisationUnit organisationUnit = getOrganisationUnit(importOptions.getIdSchemes(),
-//                                dtoEntityInstance.getOrgUnit());
-//                        checkAttributeUniquenessWithinScope(daoEntityInstance, daoEntityAttribute, attribute.getValue(), organisationUnit, importConflicts);
-//                    }
+                    if (daoEntityAttribute.isUnique()) {
+
+                        OrganisationUnit organisationUnit = globalCache.getCacheUnit( OrgUnitCacheUnit.class )
+                            .get( new SingleValueCacheKey( dtoEntityInstance.getOrgUnit() ) );
+
+                        checkAttributeUniquenessWithinScopeWithCache( daoEntityAttribute,
+                            attribute.getValue(), organisationUnit, importConflicts );
+
+                    }
 
                     validateAttributeType(attribute, importOptions, importConflicts);
 
@@ -1277,7 +1306,7 @@ public abstract class AbstractTrackedEntityInstanceService
 
     private void clearSession()
     {
-        organisationUnitCache.clear();
+        //organisationUnitCache.clear();
         trackedEntityCache.clear();
         trackedEntityAttributeCache.clear();
 

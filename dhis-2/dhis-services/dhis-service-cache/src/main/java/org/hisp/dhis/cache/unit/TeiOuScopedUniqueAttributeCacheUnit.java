@@ -30,6 +30,7 @@ package org.hisp.dhis.cache.unit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
@@ -59,8 +60,8 @@ public class TeiOuScopedUniqueAttributeCacheUnit
 
     private Cache<String> cache;
 
-    public TeiOuScopedUniqueAttributeCacheUnit(String name, long maxElements, String regionName,
-                                               TrackedEntityAttributeService trackedEntityAttributeService )
+    public TeiOuScopedUniqueAttributeCacheUnit( String name, long maxElements, String regionName,
+        TrackedEntityAttributeService trackedEntityAttributeService )
     {
         super( () -> trackedEntityAttributeService );
         this.name = name;
@@ -76,15 +77,13 @@ public class TeiOuScopedUniqueAttributeCacheUnit
     @Override
     protected CacheInfo populateCache()
     {
-        List<TrackedEntityAttribute> trackedEntityAttributes = this.dataSupplier.get()
-            .getAllTrackedEntityAttributes();
+        List<TrackedEntityAttribute> trackedEntityAttributes = this.dataSupplier.get().getAllTrackedEntityAttributes();
 
         for ( TrackedEntityAttribute trackedEntityAttribute : trackedEntityAttributes )
         {
-            
+
             if ( trackedEntityAttribute.getOrgUnitScopeNullSafe() )
             {
-
                 try
                 {
                     Map<String, String> uniqueValueForTrackedEntityAttribute = this.dataSupplier.get()
@@ -110,7 +109,7 @@ public class TeiOuScopedUniqueAttributeCacheUnit
             this.dataSupplier.get().getClass().getName() );
 
     }
-    
+
     private OrganisationUnit createOrgUnitWithUid( String uid )
     {
         OrganisationUnit ou = new OrganisationUnit();
@@ -138,5 +137,10 @@ public class TeiOuScopedUniqueAttributeCacheUnit
     {
         return cache.get( key.get() ).orElse( null );
     }
-    
+
+    public synchronized String getAndPutIfMissing( TeiOuScopedUniqueValueCacheKey key, String value )
+    {
+        return CacheUnitUtils.getAndPut( this.cache, key, value );
+    }
+
 }

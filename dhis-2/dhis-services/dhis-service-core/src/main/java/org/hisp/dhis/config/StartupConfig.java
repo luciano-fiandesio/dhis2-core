@@ -28,6 +28,7 @@ package org.hisp.dhis.config;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import org.hisp.dhis.cache.GlobalCache;
 import org.hisp.dhis.category.CategoryService;
 import org.hisp.dhis.common.IdentifiableObjectManager;
 import org.hisp.dhis.configuration.ConfigurationService;
@@ -179,5 +180,13 @@ public class StartupConfig
         schedulerStart.setRunlevel( 14 );
         schedulerStart.setSkipInTests( true );
         return schedulerStart;
+    }
+
+    @Bean
+    public GlobalCacheLoader globalCacheLoader( GlobalCache globalCache )
+    {
+        GlobalCacheLoader globalCacheLoader = new GlobalCacheLoader( globalCache );
+        globalCacheLoader.setSkipInTests( true );
+        return globalCacheLoader;
     }
 }

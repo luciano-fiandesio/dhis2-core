@@ -29,18 +29,27 @@ package org.hisp.dhis.cache.unit;
  */
 
 import org.hisp.dhis.cache.Cache;
-import org.hisp.dhis.cache.CacheUnit;
 import org.hisp.dhis.cache.key.CacheKey;
+
+import java.util.Optional;
 
 /**
  * @author Luciano Fiandesio
  */
 public class CacheUnitUtils {
 
+     protected static synchronized <K> K getAndPut(Cache<K> cache, CacheKey key, K value) {
 
-     protected static synchronized void getAndPut(Cache cache) {
-
-
+         Optional<K> cachedValue = cache.getIfPresent( key.get() );
+         if ( cachedValue.isPresent() )
+         {
+             return cachedValue.get();
+         }
+         else
+         {
+             cache.put( key.get(), value );
+             return null;
+         }
 
     }
 }

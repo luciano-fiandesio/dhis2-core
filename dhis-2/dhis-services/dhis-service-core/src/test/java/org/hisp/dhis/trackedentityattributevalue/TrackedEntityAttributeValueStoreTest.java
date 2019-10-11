@@ -28,7 +28,12 @@ package org.hisp.dhis.trackedentityattributevalue;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import com.google.common.collect.Lists;
+import static org.junit.Assert.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import org.hisp.dhis.DhisSpringTest;
 import org.hisp.dhis.common.AuditType;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
@@ -41,10 +46,7 @@ import org.hisp.dhis.trackedentity.TrackedEntityInstanceService;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.Assert.*;
+import com.google.common.collect.Lists;
 
 /**
  * @author Chau Thu Tran
@@ -75,6 +77,8 @@ public class TrackedEntityAttributeValueStoreTest
     private TrackedEntityAttribute attributeB;
 
     private TrackedEntityAttribute attributeC;
+    
+    private TrackedEntityAttribute attributeD;
 
     private TrackedEntityInstance entityInstanceA;
 
@@ -83,6 +87,8 @@ public class TrackedEntityAttributeValueStoreTest
     private TrackedEntityInstance entityInstanceC;
 
     private TrackedEntityInstance entityInstanceD;
+
+    private OrganisationUnit organisationUnit;
 
     private TrackedEntityAttributeValue attributeValueA;
 
@@ -93,7 +99,7 @@ public class TrackedEntityAttributeValueStoreTest
     @Override
     public void setUpTest()
     {
-        OrganisationUnit organisationUnit = createOrganisationUnit( 'A' );
+        organisationUnit = createOrganisationUnit( 'A' );
         organisationUnitService.addOrganisationUnit( organisationUnit );
 
         entityInstanceA = createTrackedEntityInstance( organisationUnit );
@@ -109,10 +115,14 @@ public class TrackedEntityAttributeValueStoreTest
         attributeA = createTrackedEntityAttribute( 'A' );
         attributeB = createTrackedEntityAttribute( 'B' );
         attributeC = createTrackedEntityAttribute( 'C' );
+        
+        attributeD = createTrackedEntityAttribute( 'D' );
+        attributeD.setOrgunitScope( true );
 
         attributeService.addTrackedEntityAttribute( attributeA );
         attributeService.addTrackedEntityAttribute( attributeB );
         attributeService.addTrackedEntityAttribute( attributeC );
+        attributeService.addTrackedEntityAttribute( attributeD );
 
         attributeValueA = new TrackedEntityAttributeValue( attributeA, entityInstanceA, "A" );
         attributeValueA.setAutoFields();
@@ -184,7 +194,7 @@ public class TrackedEntityAttributeValueStoreTest
     }
 
     @Test
-    public void testGetTrackedEntityAttributeValuesbyEntityInstanceList()
+    public void testGetTrackedEntityAttributeValuesByEntityInstanceList()
     {
         attributeValueStore.saveVoid( attributeValueA );
         attributeValueStore.saveVoid( attributeValueB );
@@ -230,4 +240,12 @@ public class TrackedEntityAttributeValueStoreTest
         assertEquals( 2, attributeValueAuditStore.getTrackedEntityAttributeValueAudits(
             null, Lists.newArrayList( entityInstanceA ), AuditType.UPDATE ).size() );
     }
+    
+    @Test
+    public void testGetUniqueValueForTrackedEntityAttribute()
+    {
+        Optional<String> result = attributeValueStore.getUniqueValueForTrackedEntityAttribute( attributeD, organisationUnit );
+        System.out.println( result.isPresent() ); // TODO finish this test
+    }
+    
 }

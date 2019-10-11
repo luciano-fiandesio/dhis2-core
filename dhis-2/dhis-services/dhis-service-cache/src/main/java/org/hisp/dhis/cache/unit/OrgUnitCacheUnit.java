@@ -104,4 +104,10 @@ public class OrgUnitCacheUnit
         return cache.get( key.get() ).orElse( null );
     }
 
+    @Override
+    public OrganisationUnit getAndPutIfMissing( SingleValueCacheKey key, OrganisationUnit value )
+    {
+
+        return CacheUnitUtils.getAndPut( this.cache, key, value );
+    }
 }

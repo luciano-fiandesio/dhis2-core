@@ -28,17 +28,22 @@ package org.hisp.dhis.dxf2.events.enrollment;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.vividsolutions.jts.geom.GeometryFactory;
+import static org.hisp.dhis.system.notification.NotificationLevel.ERROR;
+
+import java.util.*;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import javax.transaction.Transactional;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hisp.dhis.common.CodeGenerator;
-import org.hisp.dhis.common.IdSchemes;
-import org.hisp.dhis.common.IdentifiableObjectManager;
-import org.hisp.dhis.common.IllegalQueryException;
-import org.hisp.dhis.common.OrganisationUnitSelectionMode;
-import org.hisp.dhis.common.Pager;
+import org.hisp.dhis.cache.GlobalCache;
+import org.hisp.dhis.cache.key.SingleValueCacheKey;
+import org.hisp.dhis.cache.key.TeiOuScopedUniqueValueCacheKey;
+import org.hisp.dhis.cache.unit.OrgUnitCacheUnit;
+import org.hisp.dhis.cache.unit.TeiOuScopedUniqueAttributeCacheUnit;
+import org.hisp.dhis.common.*;
 import org.hisp.dhis.common.exception.InvalidIdentifierReferenceException;
 import org.hisp.dhis.commons.collection.CachingMap;
 import org.hisp.dhis.commons.util.DebugUtils;
@@ -62,15 +67,7 @@ import org.hisp.dhis.dxf2.importsummary.ImportSummary;
 import org.hisp.dhis.i18n.I18nManager;
 import org.hisp.dhis.organisationunit.FeatureType;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
-import org.hisp.dhis.program.Program;
-import org.hisp.dhis.program.ProgramInstance;
-import org.hisp.dhis.program.ProgramInstanceQueryParams;
-import org.hisp.dhis.program.ProgramInstanceService;
-import org.hisp.dhis.program.ProgramService;
-import org.hisp.dhis.program.ProgramStageInstance;
-import org.hisp.dhis.program.ProgramStageInstanceService;
-import org.hisp.dhis.program.ProgramStatus;
-import org.hisp.dhis.program.ProgramTrackedEntityAttribute;
+import org.hisp.dhis.program.*;
 import org.hisp.dhis.query.Query;
 import org.hisp.dhis.query.QueryService;
 import org.hisp.dhis.query.Restrictions;
@@ -96,18 +93,9 @@ import org.hisp.dhis.util.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 
-import javax.transaction.Transactional;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.hisp.dhis.system.notification.NotificationLevel.ERROR;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.vividsolutions.jts.geom.GeometryFactory;
 
 /**
  * @author Morten Olav Hansen <mortenoh@gmail.com>
@@ -177,7 +165,8 @@ public abstract class AbstractEnrollmentService
     @Autowired
     protected Notifier notifier;
 
-    private CachingMap<String, OrganisationUnit> organisationUnitCache = new CachingMap<>();
+    @Autowired
+    protected GlobalCache globalCache;
 
     private CachingMap<String, Program> programCache = new CachingMap<>();
 
@@ -1105,16 +1094,6 @@ public abstract class AbstractEnrollmentService
 
     private void prepareCaches( List<Enrollment> enrollments, User user )
     {
-        Collection<String> orgUnits = enrollments.stream().map( Enrollment::getOrgUnit ).collect( Collectors.toSet() );
-
-        if ( !orgUnits.isEmpty() )
-        {
-            Query query = Query.from( schemaService.getDynamicSchema( OrganisationUnit.class ) );
-            query.setUser( user );
-            query.add( Restrictions.in( "id", orgUnits ) );
-            queryService.query( query ).forEach( ou -> organisationUnitCache.put( ou.getUid(), (OrganisationUnit) ou ) );
-        }
-
         Collection<String> programs = enrollments.stream().map( Enrollment::getProgram ).collect( Collectors.toSet() );
 
         if ( !programs.isEmpty() )
@@ -1209,24 +1188,26 @@ public abstract class AbstractEnrollmentService
 
         for ( TrackedEntityAttribute trackedEntityAttribute : mandatoryMap.keySet() )
         {
-            if (!trackedEntityAttribute.isUnique()) {
-                Boolean mandatory = mandatoryMap.get(trackedEntityAttribute);
+            Boolean mandatory = mandatoryMap.get( trackedEntityAttribute );
 
-                if (mandatory && doValidationOfMandatoryAttributes(importOptions.getUser()) && !attributeValueMap.containsKey(trackedEntityAttribute.getUid())) {
-                    importConflicts.add(new ImportConflict("Attribute.attribute", "Missing mandatory attribute "
-                            + trackedEntityAttribute.getUid()));
-                    continue;
-                }
-
-//                if (trackedEntityAttribute.isUnique()) {
-//                    OrganisationUnit organisationUnit = manager.get(OrganisationUnit.class, instance.getOrgUnit());
-//
-//                    checkAttributeUniquenessWithinScope(trackedEntityInstance, trackedEntityAttribute,
-//                            attributeValueMap.get(trackedEntityAttribute.getUid()), organisationUnit, importConflicts);
-//                }
-
-                attributeValueMap.remove(trackedEntityAttribute.getUid());
+            if ( mandatory && doValidationOfMandatoryAttributes( importOptions.getUser() ) && !attributeValueMap.containsKey( trackedEntityAttribute.getUid() ) )
+            {
+                importConflicts.add( new ImportConflict( "Attribute.attribute", "Missing mandatory attribute "
+                    + trackedEntityAttribute.getUid() ) );
+                continue;
             }
+
+            if ( trackedEntityAttribute.isUnique() )
+            {
+                //OrganisationUnit organisationUnit = manager.get( OrganisationUnit.class, instance.getOrgUnit() );
+                OrganisationUnit organisationUnit = globalCache.getCacheUnit( OrgUnitCacheUnit.class )
+                        .get( new SingleValueCacheKey( instance.getOrgUnit() ) );
+
+                checkAttributeUniquenessWithinScopeCached( trackedEntityAttribute,
+                    attributeValueMap.get( trackedEntityAttribute.getUid() ), organisationUnit, importConflicts );
+            }
+
+            attributeValueMap.remove( trackedEntityAttribute.getUid() );
         }
 
         if ( !attributeValueMap.isEmpty() )
@@ -1256,6 +1237,7 @@ public abstract class AbstractEnrollmentService
         return importConflicts;
     }
 
+
     private void checkAttributeUniquenessWithinScope( org.hisp.dhis.trackedentity.TrackedEntityInstance trackedEntityInstance,
         TrackedEntityAttribute trackedEntityAttribute, String value, OrganisationUnit organisationUnit,
         Set<ImportConflict> importConflicts )
@@ -1270,6 +1252,27 @@ public abstract class AbstractEnrollmentService
 
         if ( errorMessage != null )
         {
+            importConflicts.add( new ImportConflict( "Attribute.value", errorMessage ) );
+        }
+    }
+
+    private void checkAttributeUniquenessWithinScopeCached(
+        TrackedEntityAttribute trackedEntityAttribute, String value, OrganisationUnit organisationUnit,
+        Set<ImportConflict> importConflicts )
+    {
+        if ( value == null )
+        {
+            return;
+        }
+
+        final String uniqueValue = globalCache.getCacheUnit( TeiOuScopedUniqueAttributeCacheUnit.class )
+                .getAndPutIfMissing( new TeiOuScopedUniqueValueCacheKey( trackedEntityAttribute, organisationUnit ), value );
+
+        if ( uniqueValue != null )
+        {
+            String errorMessage = "Non-unique attribute value '" + value + "' for attribute "
+                    + trackedEntityAttribute.getUid();
+
             importConflicts.add( new ImportConflict( "Attribute.value", errorMessage ) );
         }
     }
@@ -1378,7 +1381,12 @@ public abstract class AbstractEnrollmentService
 
     private OrganisationUnit getOrganisationUnit( IdSchemes idSchemes, String id )
     {
-        return organisationUnitCache.get( id, new IdentifiableObjectCallable<>( manager, OrganisationUnit.class, idSchemes.getOrgUnitIdScheme(), id ) );
+        if ( idSchemes.getOrgUnitIdScheme().is( IdentifiableProperty.UID ) )
+        {
+            return this.globalCache.getCacheUnit( OrgUnitCacheUnit.class ).get( new SingleValueCacheKey( id ) );
+        }
+        // TODO
+        return manager.getObject( OrganisationUnit.class, idSchemes.getOrgUnitIdScheme(), id );
     }
 
     private Program getProgram( IdSchemes idSchemes, String id )
@@ -1393,7 +1401,7 @@ public abstract class AbstractEnrollmentService
 
     private void clearSession()
     {
-        organisationUnitCache.clear();
+        //organisationUnitCache.clear();
         programCache.clear();
         trackedEntityAttributeCache.clear();
 

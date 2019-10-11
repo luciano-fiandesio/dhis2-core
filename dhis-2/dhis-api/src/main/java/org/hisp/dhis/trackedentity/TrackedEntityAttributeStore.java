@@ -66,4 +66,5 @@ public interface TrackedEntityAttributeStore
      * @return Optional of TrackedEntityInstance UID or empty Optional.
      */
     Optional<String> getTrackedEntityInstanceUidWithUniqueAttributeValue( TrackedEntityInstanceQueryParams params );
+
 }

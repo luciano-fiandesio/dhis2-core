@@ -36,4 +36,7 @@ import org.hisp.dhis.cache.key.CacheKey;
 public interface CacheUnit<T, K extends CacheKey>
 {
     T get( K key );
+
+    T getAndPutIfMissing (K key, T value);
+
 }

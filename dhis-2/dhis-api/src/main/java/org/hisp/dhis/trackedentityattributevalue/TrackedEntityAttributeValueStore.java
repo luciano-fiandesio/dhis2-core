@@ -29,12 +29,14 @@ package org.hisp.dhis.trackedentityattributevalue;
  */
 
 import org.hisp.dhis.common.GenericStore;
+import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.trackedentity.TrackedEntityAttribute;
 import org.hisp.dhis.trackedentity.TrackedEntityInstance;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @author Abyot Asalefew
@@ -131,4 +133,14 @@ public interface TrackedEntityAttributeValueStore
      * @return Number of assigned TrackedEntityAttributeValues
      */
     int getCountOfAssignedTEAValues( TrackedEntityAttribute attribute );
+
+    /**
+     * Fetches the value for a Globally Unique {@see TrackedEntityAttribute}.
+     * If the specified {@see TrackedEntityAttribute} is not Globally Unique, an exception is thrown
+     * If more than one value is returned from the query, an exception is thrown
+     *
+     * @param trackedEntityAttribute a Globally Unique {@see TrackedEntityAttribute}
+     * @return a String representing the global value, or an Optional.empty();
+     */
+    Optional<String> getUniqueValueForTrackedEntityAttribute (TrackedEntityAttribute trackedEntityAttribute, OrganisationUnit organisationUnit);
 }

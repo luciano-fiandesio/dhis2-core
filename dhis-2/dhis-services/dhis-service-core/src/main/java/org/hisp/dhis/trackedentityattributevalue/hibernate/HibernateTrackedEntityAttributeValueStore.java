@@ -28,10 +28,16 @@ package org.hisp.dhis.trackedentityattributevalue.hibernate;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.SessionFactory;
 import org.hibernate.query.Query;
 import org.hisp.dhis.hibernate.HibernateGenericStore;
+import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.trackedentity.TrackedEntityAttribute;
 import org.hisp.dhis.trackedentity.TrackedEntityInstance;
@@ -40,10 +46,6 @@ import org.hisp.dhis.trackedentityattributevalue.TrackedEntityAttributeValueStor
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 /**
  * @author Abyot Asalefew
@@ -165,5 +167,42 @@ public class HibernateTrackedEntityAttributeValueStore
         query.setParameter( "attribute", attribute );
 
         return ((Long) query.getSingleResult()).intValue();
+    }
+
+    @Override
+    public Optional<String> getUniqueValueForTrackedEntityAttribute( TrackedEntityAttribute attribute,
+        OrganisationUnit organisationUnit )
+    {
+        if ( !attribute.getOrgUnitScopeNullSafe() )
+        {
+            throw new IllegalArgumentException( String.format(
+                "Tracker Entity Attribute with uid [%s] is not Org Unit unique. Can't retrieve unique value",
+                attribute.getUid() ) );
+        }
+
+
+        Query query = getQuery(
+            "select distinct c.plainValue from TrackedEntityAttributeValue c where c.attribute = :attribute" );
+
+        List<?> resultList = getUntypedSqlQuery("select distinct tv.value " +
+                "from trackedentityattributevalue tv " +
+                "         join trackedentityattribute t on tv.trackedentityattributeid = t.trackedentityattributeid " +
+                "         join trackedentityinstance t2 on tv.trackedentityinstanceid = t2.trackedentityinstanceid " +
+                "where t.orgunitscope = true and t2.organisationunitid = " + organisationUnit.getId()).getResultList();
+
+        if ( resultList.size() == 0 )
+        {
+            return Optional.empty();
+        }
+        else if ( resultList.size() == 1 )
+        {
+            return Optional.of( (String) resultList.get( 0 ) );
+        }
+        else
+        {
+            throw new IllegalArgumentException( String.format(
+                "Tracker Entity Attribute with uid [%s] is Org Unit unique but multiple values were found for Org Unit [%s].",
+                attribute.getUid(), organisationUnit.getUid() ) ); // TODO throw proper exception
+        }
     }
 }
