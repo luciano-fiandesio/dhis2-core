@@ -70,6 +70,7 @@ import org.hisp.dhis.analytics.DataQueryParams;
 import org.hisp.dhis.analytics.DataType;
 import org.hisp.dhis.analytics.MeasureFilter;
 import org.hisp.dhis.analytics.QueryPlanner;
+import org.hisp.dhis.analytics.cache.AnalyticsQueryCache;
 import org.hisp.dhis.analytics.table.PartitionUtils;
 import org.hisp.dhis.analytics.util.AnalyticsSqlUtils;
 import org.hisp.dhis.analytics.util.AnalyticsUtils;
@@ -125,15 +126,14 @@ public class JdbcAnalyticsManager
 
     private final QueryPlanner queryPlanner;
 
-    private final JdbcTemplate jdbcTemplate;
-
-    public JdbcAnalyticsManager( QueryPlanner queryPlanner, @Qualifier( "readOnlyJdbcTemplate" ) JdbcTemplate jdbcTemplate )
+    private final AnalyticsQueryCache analyticsQueryCache;
+    public JdbcAnalyticsManager( QueryPlanner queryPlanner, AnalyticsQueryCache analyticsQueryCache )
     {
         checkNotNull( queryPlanner );
-        checkNotNull( jdbcTemplate );
+        checkNotNull( analyticsQueryCache );
 
         this.queryPlanner = queryPlanner;
-        this.jdbcTemplate = jdbcTemplate;
+        this.analyticsQueryCache = analyticsQueryCache;
     }
 
     // -------------------------------------------------------------------------
@@ -659,7 +659,7 @@ public class JdbcAnalyticsManager
 
         log.debug( String.format( "Analytics SQL: %s", sql ) );
 
-        SqlRowSet rowSet = jdbcTemplate.queryForRowSet( sql );
+        SqlRowSet rowSet = analyticsQueryCache.execute( sql, params );
 
         int counter = 0;
 
