@@ -55,7 +55,9 @@ public class NestedIndicatorCyclicDependencyInspector
     /**
      * Holds the tree structure of the nested indicators
      */
-    private List<TreeNode<String>> nestedIndicatorTrees;
+    private List<TreeNode<String>> nestedIndicatorTreesNum;
+
+    private List<TreeNode<String>> nestedIndicatorTreesDen;
 
     private ExpressionService expressionService;
 
@@ -72,14 +74,30 @@ public class NestedIndicatorCyclicDependencyInspector
         this.expressionService = expressionService;
         // init the tree structures
         resetTrees();
+
         // add root nodes represented by the Indicators
         for ( Indicator indicator : indicators )
         {
-            nestedIndicatorTrees.add( getNode( indicator ) );
+            nestedIndicatorTreesNum.add( getNode( indicator, ExpressionType.NUMERATOR ) );
+            nestedIndicatorTreesDen.add( getNode( indicator, ExpressionType.DENOMINATOR ) );
         }
     }
 
+    /**
+     * Add the List of {@see Indicator} to the the Tree
+     * 
+     * Throws a {@see CyclicReferenceException} if the indicators are already in the
+     * Tree
+     * 
+     * @param indicators
+     */
     public void add( List<Indicator> indicators )
+    {
+        add( indicators, ExpressionType.NUMERATOR );
+        add( indicators, ExpressionType.DENOMINATOR );
+    }
+
+    private void add( List<Indicator> indicators, ExpressionType expressionType )
     {
         List<String> alreadyAdded = new ArrayList<>();
 
@@ -87,7 +105,9 @@ public class NestedIndicatorCyclicDependencyInspector
         {
             if ( !alreadyAdded.contains( indicator.getUid() ) )
             {
-                for ( TreeNode<String> node : nestedIndicatorTrees )
+                for ( TreeNode<String> node : (expressionType.equals( ExpressionType.DENOMINATOR )
+                    ? this.nestedIndicatorTreesDen
+                    : this.nestedIndicatorTreesNum) )
                 {
                     TreeNode<String> root = node.root();
                     TreeNode<String> nodeToReplace = root.find( indicator.getUid() );
@@ -99,7 +119,7 @@ public class NestedIndicatorCyclicDependencyInspector
                             // Replace the "write-ahead" node with the "real" node
                             TreeNode<String> parent = nodeToReplace.parent();
                             root.remove( nodeToReplace );
-                            parent.add( getNode( indicator ) );
+                            parent.add( getNode( indicator, expressionType ) );
                             alreadyAdded.add( indicator.getUid() );
                             break;
                         }
@@ -109,8 +129,9 @@ public class NestedIndicatorCyclicDependencyInspector
                         else
                         {
                             throw new CyclicReferenceException( String.format(
-                                "Item of type %s with identifier '%s' has a cyclic reference to another item.",
-                                "INDICATOR", nodeToReplace.data() ) );
+                                "An Indicator with identifier '%s' has a cyclic reference to another item in the %s expression.",
+                                nodeToReplace.data(),
+                                expressionType.equals( ExpressionType.DENOMINATOR ) ? "Denominator" : "Numerator" ) );
                         }
                     }
                 }
@@ -118,23 +139,19 @@ public class NestedIndicatorCyclicDependencyInspector
         }
     }
 
-    /**
-     * Create a Node from an Indicator.
-     *
-     * @param indicator an instance of {@see Indicator}
-     * @return a TreeNode
-     */
-    private TreeNode<String> getNode( Indicator indicator )
+    private TreeNode<String> getNode( Indicator indicator, ExpressionType expressionType )
     {
         // Create the Node using the Indicator UID as value
         TreeNode<String> node = new ArrayMultiTreeNode<>( indicator.getUid() );
 
-        // Add to the newly created node all the DimensionalItems found in the numerator and denominator expressions as
-        // child nodes ("Write-ahead"). The write-ahead nodes are required to "connect" the next iteration of Indicators
+        // Add to the newly created node all the DimensionalItems found in the numerator
+        // and denominator expressions as
+        // child nodes ("Write-ahead"). The write-ahead nodes are required to "connect"
+        // the next iteration of Indicators
         //
-        // TODO handle denominator too
-        Set<DimensionalItemId> expressionDataElements = expressionService
-            .getExpressionDimensionalItemIds( indicator.getNumerator(), ParseType.INDICATOR_EXPRESSION );
+        Set<DimensionalItemId> expressionDataElements = expressionService.getExpressionDimensionalItemIds(
+            expressionType.equals( ExpressionType.DENOMINATOR ) ? indicator.getDenominator() : indicator.getNumerator(),
+            ParseType.INDICATOR_EXPRESSION );
 
         for ( DimensionalItemId dimensionalItemId : expressionDataElements )
         {
@@ -148,8 +165,15 @@ public class NestedIndicatorCyclicDependencyInspector
         return node;
     }
 
+
     private void resetTrees()
     {
-        nestedIndicatorTrees = new ArrayList<>();
+        nestedIndicatorTreesNum = new ArrayList<>();
+        nestedIndicatorTreesDen = new ArrayList<>();
+    }
+
+    enum ExpressionType
+    {
+        NUMERATOR, DENOMINATOR
     }
 }

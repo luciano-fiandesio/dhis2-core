@@ -83,7 +83,7 @@ public class AnalyticsServiceIndicatorTest
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
-    private final static String ERROR_STRING = "Item of type INDICATOR with identifier '%s' has a cyclic reference to another item";
+    private final static String ERROR_STRING = "An Indicator with identifier '%s' has a cyclic reference to another item in the Numerator expression.";
 
     @Before
     public void setUp()
@@ -228,30 +228,25 @@ public class AnalyticsServiceIndicatorTest
     }
 
     /**
-     *       +------>IndicatorF
-     *      |            |
-     *      |            |
-     *      |            v
-     *      |       IndicatorG
-     *      |          +
-     *      +          |
-     * IndicatorH<-----+
+     *   IndicatorF
+     *     ^  +
+     *     |  |
+     *     +  v
+     *   IndicatorH
      *
      *
      */
     @Test
     public void verifyIndicatorCyclicDependencyIsDetected()
     {
-        System.out.println("verifyIndicatorCyclicDependencyIsDetected");
         IndicatorType indicatorTypeB = createIndicatorType( 'B' );
         indicatorService.addIndicatorType( indicatorTypeB );
 
         Indicator indicatorF = createIndicator( 'F', indicatorTypeB, "N{mindicatorH}" );
-        createIndicator( 'G', indicatorTypeB, "#{dataElemenA}/6" );
         createIndicator( 'H', indicatorTypeB, "N{mindicatorF}" );
 
         thrown.expect( CyclicReferenceException.class );
-        //thrown.expectMessage( String.format(ERROR_STRING, "mindicatorF") );
+        thrown.expectMessage( String.format( ERROR_STRING, "mindicatorH" ) );
 
         this.analyticsService.getAggregatedDataValues( createParamsWithRootIndicator( indicatorF ) );
     }
@@ -291,7 +286,7 @@ public class AnalyticsServiceIndicatorTest
         createIndicator( 'M', indicatorTypeB, "N{mindicatorG}" );
 
         thrown.expect( CyclicReferenceException.class );
-        //thrown.expectMessage( String.format(ERROR_STRING, "mindicatorG") );
+        thrown.expectMessage( String.format(ERROR_STRING, "mindicatorG") );
 
         this.analyticsService.getAggregatedDataValues( createParamsWithRootIndicator( indicatorF ) );
     }
@@ -320,14 +315,22 @@ public class AnalyticsServiceIndicatorTest
         this.analyticsService.getAggregatedDataValues( createParamsWithRootIndicator( indicatorF, indicatorW ) );
     }
 
-    /*
-           A --> B -> C -> A
-                 |
-                \/
-                 D
-    */
+    /**
+     *     +------->IndicatorA
+     *     |            +
+     *     |            |
+     *     |            v
+     *     |        IndicatorB
+     *     |           +   +
+     *     +           |   |
+     * IndicatorC<-----+   +-->IndicatorD
+     *                             +
+     *                             |
+     *                             v
+     *                        DataElementA
+     */
     @Test
-    public void v1ShouldDetectCircDep() {
+    public void verifyIndicatorCyclicDependencyIsDetected4() {
         IndicatorType indicatorTypeB = createIndicatorType( 'B' );
         indicatorService.addIndicatorType( indicatorTypeB );
 
@@ -374,10 +377,6 @@ public class AnalyticsServiceIndicatorTest
         // Then
         assertThat( grid, is( not ( nullValue() )));
     }
-
-
-
-
 
     private Indicator createIndicator( char uniqueCharacter, IndicatorType type, String numerator )
     {
