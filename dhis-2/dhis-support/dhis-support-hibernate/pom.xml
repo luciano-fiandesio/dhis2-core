@@ -52,10 +52,12 @@
       <groupId>org.apache.geronimo.specs</groupId>
       <artifactId>geronimo-jta_1.1_spec</artifactId>
     </dependency>
+
     <dependency>
-      <groupId>com.mchange</groupId>
-      <artifactId>c3p0</artifactId>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
     </dependency>
+
     <dependency>
       <groupId>cglib</groupId>
       <artifactId>cglib</artifactId>

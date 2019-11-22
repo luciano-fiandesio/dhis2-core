@@ -53,7 +53,6 @@ import org.hisp.dhis.external.conf.DhisConfigurationProvider;
 import org.hisp.dhis.util.ObjectUtils;
 import org.springframework.beans.factory.InitializingBean;
 
-import com.mchange.v2.c3p0.ComboPooledDataSource;
 
 /**
  * @author Lars Helge Overland
@@ -153,28 +152,30 @@ public class DefaultDataSourceManager
 
             if ( ObjectUtils.allNonNull( jdbcUrl, user, password ) )
             {
-                try
-                {
-                    ComboPooledDataSource ds = new ComboPooledDataSource();
-
-                    ds.setDriverClass( driverClass );
-                    ds.setJdbcUrl( jdbcUrl );
-                    ds.setUser( user );
-                    ds.setPassword( password );
-                    ds.setMaxPoolSize( Integer.valueOf( maxPoolSize ) );
-                    ds.setAcquireIncrement( VAL_ACQUIRE_INCREMENT );
-                    ds.setMaxIdleTime( VAL_MAX_IDLE_TIME );
-
-                    dataSources.add( ds );
-
-                    log.info( String.format( "Found read replica, index: '%d', connection URL: '%s''", i, jdbcUrl ) );
-
-                    testConnection( ds );
-                }
-                catch ( PropertyVetoException ex )
-                {
-                    throw new IllegalArgumentException( "Invalid configuration of read replica: " + jdbcUrl, ex );
-                }
+                // try
+                // {
+                // ComboPooledDataSource ds = new ComboPooledDataSource();
+                //
+                // ds.setDriverClass( driverClass );
+                // ds.setJdbcUrl( jdbcUrl );
+                // ds.setUser( user );
+                // ds.setPassword( password );
+                // ds.setMaxPoolSize( Integer.valueOf( maxPoolSize ) );
+                // ds.setAcquireIncrement( VAL_ACQUIRE_INCREMENT );
+                // ds.setMaxIdleTime( VAL_MAX_IDLE_TIME );
+                //
+                // dataSources.add( ds );
+                //
+                // log.info( String.format( "Found read replica, index: '%d', connection URL:
+                // '%s''", i, jdbcUrl ) );
+                //
+                // testConnection( ds );
+                // }
+                // catch ( PropertyVetoException ex )
+                // {
+                // throw new IllegalArgumentException( "Invalid configuration of read replica: "
+                // + jdbcUrl, ex );
+                // }
             }
         }
 
@@ -183,28 +184,31 @@ public class DefaultDataSourceManager
         return dataSources;
     }
 
-    private void testConnection( ComboPooledDataSource dataSource )
-    {
-        try
-        {
-            Connection conn = dataSource.getConnection();
-
-            try ( Statement stmt = conn.createStatement() )
-            {
-                stmt.executeQuery( "select 'connection_test' as connection_test;" );
-            }
-
-            log.info( String.format( "Connection test successful for read replica: '%s'", dataSource.getJdbcUrl() ) );
-        }
-        catch ( SQLException ex )
-        {
-            String message = String.format( "Connection test failed for read replica, driver class: '%s', URL: '%s', user: '%s', pw: '%s",
-                dataSource.getDriverClass(), dataSource.getJdbcUrl(), dataSource.getUser(), dataSource.getPassword() );
-
-            log.error( message );
-            log.error( DebugUtils.getStackTrace( ex ) );
-
-            throw new IllegalStateException( message, ex );
-        }
-    }
+    // private void testConnection( ComboPooledDataSource dataSource )
+    // {
+    // try
+    // {
+    // Connection conn = dataSource.getConnection();
+    //
+    // try ( Statement stmt = conn.createStatement() )
+    // {
+    // stmt.executeQuery( "select 'connection_test' as connection_test;" );
+    // }
+    //
+    // log.info( String.format( "Connection test successful for read replica: '%s'",
+    // dataSource.getJdbcUrl() ) );
+    // }
+    // catch ( SQLException ex )
+    // {
+    // String message = String.format( "Connection test failed for read replica,
+    // driver class: '%s', URL: '%s', user: '%s', pw: '%s",
+    // dataSource.getDriverClass(), dataSource.getJdbcUrl(), dataSource.getUser(),
+    // dataSource.getPassword() );
+    //
+    // log.error( message );
+    // log.error( DebugUtils.getStackTrace( ex ) );
+    //
+    // throw new IllegalStateException( message, ex );
+    // }
+    // }
 }

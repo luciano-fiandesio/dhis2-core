@@ -227,11 +227,17 @@ public class DefaultHibernateConfigurationProvider
         Properties props = new Properties();
 
         putIfExists( configurationProvider.getProperty( ConfigurationKey.CONNECTION_DIALECT ), Environment.DIALECT, props );
-        putIfExists( configurationProvider.getProperty( ConfigurationKey.CONNECTION_DRIVER_CLASS ), Environment.DRIVER, props );
-        putIfExists( configurationProvider.getProperty( ConfigurationKey.CONNECTION_URL ), Environment.URL, props );
-        putIfExists( configurationProvider.getProperty( ConfigurationKey.CONNECTION_USERNAME ), Environment.USER, props );
-        putIfExists( configurationProvider.getProperty( ConfigurationKey.CONNECTION_PASSWORD ), Environment.PASS, props );
-        putIfExists( configurationProvider.getProperty( ConfigurationKey.CONNECTION_POOL_MAX_SIZE ), Environment.C3P0_MAX_SIZE, props );
+        // putIfExists( configurationProvider.getProperty(
+        // ConfigurationKey.CONNECTION_DRIVER_CLASS ), Environment.DRIVER, props );
+        // putIfExists( configurationProvider.getProperty(
+        // ConfigurationKey.CONNECTION_URL ), Environment.URL, props );
+        // putIfExists( configurationProvider.getProperty(
+        // ConfigurationKey.CONNECTION_USERNAME ), Environment.USER, props );
+        // putIfExists( configurationProvider.getProperty(
+        // ConfigurationKey.CONNECTION_PASSWORD ), Environment.PASS, props );
+        // putIfExists( configurationProvider.getProperty(
+        // ConfigurationKey.CONNECTION_POOL_MAX_SIZE ), Environment.C3P0_MAX_SIZE, props
+        // );
 
         if ( SystemUtils.isTestRun(environment.getActiveProfiles()) )
         {

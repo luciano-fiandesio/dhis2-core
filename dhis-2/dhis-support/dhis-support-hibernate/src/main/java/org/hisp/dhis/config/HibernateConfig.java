@@ -28,13 +28,15 @@ package org.hisp.dhis.config;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.hisp.dhis.cache.DefaultHibernateCacheManager;
 import org.hisp.dhis.datasource.DataSourceManager;
 import org.hisp.dhis.datasource.DefaultDataSourceManager;
 import org.hisp.dhis.dbms.DbmsManager;
 import org.hisp.dhis.dbms.HibernateDbmsManager;
 import org.hisp.dhis.deletedobject.DeletedObject;
+import org.hisp.dhis.external.conf.ConfigurationKey;
 import org.hisp.dhis.external.conf.DhisConfigurationProvider;
 import org.hisp.dhis.hibernate.DefaultHibernateConfigurationProvider;
 import org.hisp.dhis.hibernate.HibernateConfigurationProvider;
@@ -100,28 +102,63 @@ public class HibernateConfig
 
         sessionFactory.setAnnotatedClasses( DeletedObject.class );
 
-        sessionFactory.setHibernateProperties( hibernateProperties().getObject() );
+        // sessionFactory.setHibernateProperties( hibernateProperties().getObject() );
 
         return sessionFactory;
     }
 
+    // @Bean
+    // public DataSource dataSource()
+    // throws PropertyVetoException
+    // {
+    // // FIXME LUCIANO destroyMethod ? destroy-method="close"
+    // ComboPooledDataSource dataSource = new ComboPooledDataSource();
+    // dataSource.setDriverClass( (String) getConnectionProperty(
+    // "hibernate.connection.driver_class" ) );
+    // dataSource.setJdbcUrl( (String) getConnectionProperty(
+    // "hibernate.connection.url" ) );
+    // dataSource.setUser( (String) getConnectionProperty(
+    // "hibernate.connection.username" ) );
+    // dataSource.setPassword( (String) getConnectionProperty(
+    // "hibernate.connection.password" ) );
+    // dataSource.setMinPoolSize( 5 );
+    // dataSource.setMaxPoolSize( Integer.parseInt( (String) getConnectionProperty(
+    // "hibernate.c3p0.max_size" ) ) );
+    // dataSource.setInitialPoolSize( 5 );
+    // dataSource.setAcquireIncrement( 5 );
+    // dataSource.setMaxIdleTime( 7200 );
+    //
+    // return dataSource;
+    // }
+
     @Bean
     public DataSource dataSource()
-        throws PropertyVetoException
     {
-        // FIXME LUCIANO destroyMethod ? destroy-method="close"
-        ComboPooledDataSource dataSource = new ComboPooledDataSource();
-        dataSource.setDriverClass( (String) getConnectionProperty( "hibernate.connection.driver_class" ) );
-        dataSource.setJdbcUrl( (String) getConnectionProperty( "hibernate.connection.url" ) );
-        dataSource.setUser( (String) getConnectionProperty( "hibernate.connection.username" ) );
-        dataSource.setPassword( (String) getConnectionProperty( "hibernate.connection.password" ) );
-        dataSource.setMinPoolSize( 5 );
-        dataSource.setMaxPoolSize( Integer.parseInt((String)getConnectionProperty( "hibernate.c3p0.max_size" )) );
-        dataSource.setInitialPoolSize( 5 );
-        dataSource.setAcquireIncrement( 5 );
-        dataSource.setMaxIdleTime( 7200 );
+        String url = String.format( "%s", dhisConfigurationProvider.getProperty( ConfigurationKey.CONNECTION_URL ) );
 
-        return dataSource;
+        // final HikariDataSource ds = new HikariDataSource();
+
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl( url );
+        config.setDriverClassName( dhisConfigurationProvider.getProperty( ConfigurationKey.CONNECTION_DRIVER_CLASS ) ); // alternative
+        config.setUsername( dhisConfigurationProvider.getProperty( ConfigurationKey.CONNECTION_USERNAME ) );
+        config.setPassword( dhisConfigurationProvider.getProperty( ConfigurationKey.CONNECTION_PASSWORD ) );
+        config.addDataSourceProperty( "databaseName", "dhis2_2_33" );
+
+        // ds.setDataSourceClassName( "org.postgresql.ds.PGSimpleDataSource" );
+        // ds.addDataSourceProperty( "jdbcUrl", url );
+        // ds.addDataSourceProperty( "user", (String) getConnectionProperty(
+        // "hibernate.connection.username" ) );
+        // ds.addDataSourceProperty( "password", (String) getConnectionProperty(
+        // "hibernate.connection.password" ) );
+
+        // ds.addDataSourceProperty( "cachePrepStmts", true );
+        // ds.addDataSourceProperty( "prepStmtCacheSize", 250 );
+        // ds.addDataSourceProperty( "prepStmtCacheSqlLimit", 2048 );
+        // ds.addDataSourceProperty( "useServerPrepStmts", true );
+        HikariDataSource ds = new HikariDataSource( config );
+        ds.setMaximumPoolSize( 10 );
+        return ds;
     }
 
     @Bean
