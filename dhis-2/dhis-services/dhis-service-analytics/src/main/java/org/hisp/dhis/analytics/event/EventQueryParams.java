@@ -560,7 +560,7 @@ public class EventQueryParams
 
     /**
      * Indicates whether this object is of the given aggregation type. Based on
-     * {@link getAggregationTypeFallback}.
+     * {@link this.getAggregationTypeFallback}.
      */
     @Override
     public boolean isAggregationType( AggregationType type )
