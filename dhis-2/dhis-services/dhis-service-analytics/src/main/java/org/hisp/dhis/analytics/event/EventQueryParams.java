@@ -200,6 +200,8 @@ public class EventQueryParams
      */
     protected IdScheme dataIdScheme;
 
+    private boolean skipBoundariesCheck = false;
+
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -261,6 +263,7 @@ public class EventQueryParams
 
         params.periodType = this.periodType;
 
+        params.skipBoundariesCheck = this.skipBoundariesCheck;
         return params;
     }
 
@@ -730,6 +733,11 @@ public class EventQueryParams
     public boolean hasDataIdScheme()
     {
         return dataIdScheme != null;
+    }
+
+    public boolean isSkipBoundariesCheck()
+    {
+        return skipBoundariesCheck;
     }
 
     /**
@@ -1217,6 +1225,12 @@ public class EventQueryParams
         public Builder withDataIdScheme( IdScheme dataIdScheme )
         {
             this.params.dataIdScheme = dataIdScheme;
+            return this;
+        }
+
+        public Builder withSkipBoundariesCheck( boolean skipBoundariesCheck )
+        {
+            this.params.skipBoundariesCheck = skipBoundariesCheck;
             return this;
         }
 

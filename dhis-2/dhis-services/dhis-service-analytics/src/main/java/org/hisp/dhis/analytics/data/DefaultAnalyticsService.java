@@ -816,7 +816,7 @@ public class DefaultAnalyticsService
                 .retainDataDimensions( PROGRAM_DATA_ELEMENT, PROGRAM_ATTRIBUTE, PROGRAM_INDICATOR ).build();
 
             EventQueryParams eventQueryParams = new EventQueryParams.Builder( EventQueryParams.fromDataQueryParams( dataSourceParams ) )
-                .withSkipMeta( true ).build();
+                    .withSkipMeta( true ).withSkipBoundariesCheck( true ).build();
 
             Grid eventGrid = eventAnalyticsService.getAggregatedEventData( eventQueryParams );
 
