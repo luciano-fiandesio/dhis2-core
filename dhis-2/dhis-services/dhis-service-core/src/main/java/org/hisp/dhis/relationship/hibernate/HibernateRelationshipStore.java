@@ -34,6 +34,7 @@ import org.hisp.dhis.deletedobject.DeletedObjectService;
 import org.hisp.dhis.program.ProgramInstance;
 import org.hisp.dhis.program.ProgramStageInstance;
 import org.hisp.dhis.relationship.Relationship;
+import org.hisp.dhis.relationship.RelationshipItem;
 import org.hisp.dhis.relationship.RelationshipStore;
 import org.hisp.dhis.relationship.RelationshipType;
 import org.hisp.dhis.security.acl.AclService;
@@ -44,6 +45,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
 import java.util.List;
 
 /**
@@ -105,5 +109,57 @@ public class HibernateRelationshipStore
         return getList( builder, newJpaParameters()
             .addPredicate( root -> builder.equal( root.join( "relationshipType" ), relationshipType ) ) );
 
+    }
+
+    @Override
+    public Relationship getByRelationship( Relationship relationship )
+    {
+        CriteriaBuilder builder = getCriteriaBuilder();
+        CriteriaQuery<Relationship> criteriaQuery = builder.createQuery( Relationship.class );
+
+        Root<Relationship> root = criteriaQuery.from( Relationship.class );
+
+        criteriaQuery.where( builder.and( 
+            getFromOrToPredicate("from", builder, root, relationship), 
+            getFromOrToPredicate("to", builder, root, relationship), 
+            builder.equal( root.join( "relationshipType" ), relationship.getRelationshipType() ) ) );
+
+        return getSession().createQuery( criteriaQuery ).setMaxResults( 1 ).getSingleResult();
+
+//        if (!r.isEmpty()) {
+//            return  r.get(0);
+//        } else {
+//            return null;
+//        }
+    }
+
+    private Predicate getFromOrToPredicate(String direction, CriteriaBuilder builder, Root<Relationship> root, Relationship relationship) {
+
+        RelationshipItem from = relationship.getFrom();
+
+        if ( from.getTrackedEntityInstance() != null )
+        {
+            return builder.equal( root.join( direction ).get( "trackedEntityInstance" ),
+                getItem( direction, relationship ).getTrackedEntityInstance() );
+        }
+        else if ( from.getProgramInstance() != null )
+        {
+            return builder.equal( root.join( direction ).get( "programInstance" ),
+                getItem( direction, relationship ).getProgramInstance() );
+        }
+        else if ( from.getProgramStageInstance() != null )
+        {
+            return builder.equal( root.join( direction ).get( "programStageInstance" ),
+                getItem( direction, relationship ).getProgramStageInstance() );
+        }
+        else
+        {
+            return null;
+        }
+    }
+    
+    private RelationshipItem getItem( String direction, Relationship relationship )
+    {
+        return (direction.equalsIgnoreCase( "from" ) ? relationship.getFrom() : relationship.getTo());
     }
 }

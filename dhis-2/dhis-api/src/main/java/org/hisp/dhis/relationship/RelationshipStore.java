@@ -51,4 +51,15 @@ public interface RelationshipStore
     List<Relationship> getByProgramStageInstance( ProgramStageInstance psi );
 
     List<Relationship> getByRelationshipType( RelationshipType relationshipType );
+
+    /**
+     * Fetches a {@see Relationship} based on a relationship identifying attributes:
+     * - relationship type
+     * - from
+     * - to
+     *
+     * @param relationship A valid Relationship
+     * @return an Optional Relationship
+     */
+    Relationship getByRelationship( Relationship relationship );
 }
