@@ -146,6 +146,10 @@ public class DefaultRelationshipService
     @Transactional( readOnly = true )
     public Optional<Relationship> getRelationshipByRelationship( Relationship relationship )
     {
+        checkNotNull( relationship.getFrom() );
+        checkNotNull( relationship.getTo() );
+        checkNotNull( relationship.getRelationshipType() );
+
         return Optional.ofNullable( relationshipStore.getByRelationship( relationship ) );
     }
 }
