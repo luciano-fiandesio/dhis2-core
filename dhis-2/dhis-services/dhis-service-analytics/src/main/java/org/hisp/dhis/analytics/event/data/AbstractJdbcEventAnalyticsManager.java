@@ -35,7 +35,6 @@ import static org.hisp.dhis.common.DimensionalObjectUtils.COMPOSITE_DIM_OBJECT_P
 import static org.hisp.dhis.system.util.MathUtils.getRounded;
 
 import java.util.Date;
-import java.util.List;
 
 import javax.persistence.QueryTimeoutException;
 
@@ -60,8 +59,6 @@ import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.util.Assert;
-
-import com.google.common.collect.Lists;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -128,7 +125,7 @@ public abstract class AbstractJdbcEventAnalyticsManager
      *
      * @param params the {@link EventQueryParams}.
      */
-    private String getSortClause( EventQueryParams params )
+    private String getSortClause( EventQueryParams params, ColumnList columnList )
     {
         String sql = "";
 
@@ -158,7 +155,7 @@ public abstract class AbstractJdbcEventAnalyticsManager
      * When grouping with non-default analytics period boundaries, all periods are skipped in the group
      * clause, as non default boundaries is defining their own period groups within their where clause.
      */
-    private List<String> getGroupByColumnNames( EventQueryParams params )
+    private ColumnList getGroupByColumnNames( EventQueryParams params )
     {
         return getSelectColumns( params, true );
     }
@@ -169,7 +166,7 @@ public abstract class AbstractJdbcEventAnalyticsManager
      * In the case of non-default boundaries{@link EventQueryParams#hasNonDefaultBoundaries},
      * the period is hard coded into the select statement with "(isoPeriod) as (periodType)".
      */
-    protected List<String> getSelectColumns( EventQueryParams params )
+    protected ColumnList getSelectColumns( EventQueryParams params )
     {
         return getSelectColumns( params, false );
     }
@@ -182,9 +179,9 @@ public abstract class AbstractJdbcEventAnalyticsManager
      * @param isGroupByClause used to avoid grouping by period when using non-default boundaries
      * where the column content would be hard coded. Used by the group-by calls.
      */
-    private List<String> getSelectColumns( EventQueryParams params, boolean isGroupByClause )
+    private ColumnList getSelectColumns( EventQueryParams params, boolean isGroupByClause )
     {
-        List<String> columns = Lists.newArrayList();
+        ColumnList columns = new ColumnList();
 
         for ( DimensionalObject dimension : params.getDimensions() )
         {
@@ -198,21 +195,21 @@ public abstract class AbstractJdbcEventAnalyticsManager
             {
                 String alias = getAlias( params, dimension.getDimensionType() );
 
-                columns.add( quote( alias, dimension.getDimensionName() ) );
+                columns.add( new Column(quote( alias, dimension.getDimensionName() ) ) );
             }
             else if ( params.hasSinglePeriod() )
             {
                 Period period = (Period) params.getPeriods().get( 0 );
-                columns.add( statementBuilder.encode( period.getIsoDate() ) + " as " +
-                    period.getPeriodType().getName() );
+                columns.add( new Column(statementBuilder.encode( period.getIsoDate() ) ,
+                    period.getPeriodType().getName() ) );
             }
             else if ( !params.hasPeriods() && params.hasFilterPeriods() )
             {
                 // Assuming same period type for all period filters, as the query planner splits into one query per period type
 
                 Period period = (Period) params.getFilterPeriods().get( 0 );
-                columns.add( statementBuilder.encode( period.getIsoDate() ) + " as " +
-                    period.getPeriodType().getName() );
+                columns.add( new Column(statementBuilder.encode( period.getIsoDate() ) ,
+                    period.getPeriodType().getName() ) );
             }
             else
             {
@@ -227,18 +224,18 @@ public abstract class AbstractJdbcEventAnalyticsManager
             {
                 ProgramIndicator in = (ProgramIndicator) queryItem.getItem();
 
-                String asClause = " as " + quote( in.getUid() );
+                String asClause = quote( in.getUid() );
 
                 if ( queryItem.hasRelationshipType() )
                 {
-                    columns.add( programIndicatorSubqueryBuilder.getAggregateClauseForProgramIndicator( in,
+                    columns.add( new Column(programIndicatorSubqueryBuilder.getAggregateClauseForProgramIndicator( in,
                         queryItem.getRelationshipType(), getAnalyticsType(), params.getEarliestStartDate(),
-                        params.getLatestEndDate() ) + asClause );
+                        params.getLatestEndDate() ), asClause, true ) );
                 }
                 else
                 {
-                    columns.add( programIndicatorSubqueryBuilder.getAggregateClauseForProgramIndicator( in,
-                        getAnalyticsType(), params.getEarliestStartDate(), params.getLatestEndDate() ) + asClause );
+                    columns.add( new Column(programIndicatorSubqueryBuilder.getAggregateClauseForProgramIndicator( in,
+                        getAnalyticsType(), params.getEarliestStartDate(), params.getLatestEndDate() ) , asClause, true ) );
                 }
                 
             }
@@ -246,13 +243,13 @@ public abstract class AbstractJdbcEventAnalyticsManager
             {
                 String colName = quote( queryItem.getItemName() );
 
-                String coordSql =  "'[' || round(ST_X(" + colName + ")::numeric, 6) || ',' || round(ST_Y(" + colName + ")::numeric, 6) || ']' as " + colName;
+                String coordSql =  "'[' || round(ST_X(" + colName + ")::numeric, 6) || ',' || round(ST_Y(" + colName + ")::numeric, 6) || ']'";
 
-                columns.add( coordSql );
+                columns.add( new Column(coordSql, colName) );
             }
             else
             {
-                columns.add( getColumn( queryItem ) );
+                columns.add( new Column( getColumn( queryItem ) ) );
             }
         }
 
@@ -264,7 +261,7 @@ public abstract class AbstractJdbcEventAnalyticsManager
         String countClause = getAggregateClause( params );
 
         String sql = TextUtils.removeLastComma( "select " + countClause + " as value," +
-            StringUtils.join( getSelectColumns( params ), "," ) + " " );
+            getSelectColumns( params ).getColumns() + " " );
 
         // ---------------------------------------------------------------------
         // Criteria
@@ -278,11 +275,11 @@ public abstract class AbstractJdbcEventAnalyticsManager
         // Group by
         // ---------------------------------------------------------------------
 
-        List<String> selectColumnNames = getGroupByColumnNames( params );
+        ColumnList selectColumnNames = getGroupByColumnNames( params );
 
         if ( selectColumnNames.size() > 0 )
         {
-            sql += "group by " + StringUtils.join( selectColumnNames, "," ) + " ";
+            sql += "group by " + selectColumnNames.getColumns();
         }
 
         // ---------------------------------------------------------------------
@@ -597,13 +594,15 @@ public abstract class AbstractJdbcEventAnalyticsManager
     String getEventsOrEnrollmentsSql( EventQueryParams params, int maxLimit )
     {
 
-        String sql = getSelectClause( params );
+        ColumnList columns = getColumnList( params );
+
+        String sql = columns.getColumns();
 
         sql += getFromClause( params );
 
         sql += getWhereClause( params );
 
-        sql += getSortClause( params );
+        sql += getSortClause( params, columns );
 
         sql += getPagingClause( params, maxLimit );
 
@@ -638,7 +637,7 @@ public abstract class AbstractJdbcEventAnalyticsManager
      *
      * @param params the {@link EventQueryParams}.
      */
-    protected abstract String getSelectClause( EventQueryParams params );
+    protected abstract ColumnList getColumnList( EventQueryParams params );
 
     /**
      * Generate the SQL for the from-clause. Generally this means which analytics table to get data from.

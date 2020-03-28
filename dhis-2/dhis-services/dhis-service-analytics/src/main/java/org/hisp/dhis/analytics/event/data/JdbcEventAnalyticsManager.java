@@ -32,7 +32,11 @@ import static org.apache.commons.collections4.CollectionUtils.isNotEmpty;
 import static org.apache.commons.lang.time.DateUtils.addYears;
 import static org.hisp.dhis.analytics.event.EventAnalyticsService.ITEM_LATITUDE;
 import static org.hisp.dhis.analytics.event.EventAnalyticsService.ITEM_LONGITUDE;
-import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.*;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.ANALYTICS_TBL_ALIAS;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.DATE_PERIOD_STRUCT_ALIAS;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.ORG_UNIT_STRUCT_ALIAS;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.quote;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.quoteAlias;
 import static org.hisp.dhis.common.DimensionalObject.ORGUNIT_DIM_ID;
 import static org.hisp.dhis.common.DimensionalObject.PERIOD_DIM_ID;
 import static org.hisp.dhis.common.IdentifiableObjectUtils.getUids;
@@ -55,8 +59,15 @@ import org.hisp.dhis.analytics.event.data.programIndicator.DefaultProgramIndicat
 import org.hisp.dhis.analytics.util.AnalyticsUtils;
 import org.hisp.dhis.category.Category;
 import org.hisp.dhis.category.CategoryOption;
-import org.hisp.dhis.common.*;
-import org.hisp.dhis.commons.collection.ListUtils;
+import org.hisp.dhis.common.DimensionType;
+import org.hisp.dhis.common.DimensionalItemObject;
+import org.hisp.dhis.common.DimensionalObject;
+import org.hisp.dhis.common.Grid;
+import org.hisp.dhis.common.GridHeader;
+import org.hisp.dhis.common.OrganisationUnitSelectionMode;
+import org.hisp.dhis.common.QueryFilter;
+import org.hisp.dhis.common.QueryItem;
+import org.hisp.dhis.common.QueryTimeoutException;
 import org.hisp.dhis.commons.util.ExpressionUtils;
 import org.hisp.dhis.commons.util.SqlHelper;
 import org.hisp.dhis.commons.util.TextUtils;
@@ -249,7 +260,7 @@ public class JdbcEventAnalyticsManager
      *
      * @param params the {@link EventQueryParams}.
      */
-    protected String getSelectClause( EventQueryParams params )
+    protected ColumnList getColumnList(EventQueryParams params )
     {
         ImmutableList.Builder<String> cols = new ImmutableList.Builder<String>()
             .add( "psi", "ps", "executiondate" );
@@ -263,9 +274,10 @@ public class JdbcEventAnalyticsManager
 
         cols.add( "ST_AsGeoJSON(psigeometry, 6) as geometry", "longitude", "latitude", "ouname", "oucode" );
 
-        List<String> selectCols = ListUtils.distinctUnion( cols.build(), getSelectColumns( params ) );
+        ColumnList selectCols = new ColumnList( cols.build() );
+        selectCols.addAll( getSelectColumns( params ) );
 
-        return "select " + StringUtils.join( selectCols, "," ) + " ";
+        return selectCols;
     }
 
     /**
@@ -568,9 +580,7 @@ public class JdbcEventAnalyticsManager
     String buildInFilterForCategory(final Category category, final List<CategoryOption> categoryOptions )
     {
         final String categoryColumn = quoteAlias( category.getUid() );
-        final String inFilter = categoryColumn + " not in (" + getQuotedCommaDelimitedString( getUids( categoryOptions ) )
-            + ") ";
-        return inFilter;
+        return categoryColumn + " not in (" + getQuotedCommaDelimitedString( getUids( categoryOptions ) ) + ") ";
     }
 
     /**

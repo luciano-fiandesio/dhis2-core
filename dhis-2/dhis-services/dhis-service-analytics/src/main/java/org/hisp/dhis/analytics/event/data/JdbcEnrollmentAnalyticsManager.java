@@ -28,7 +28,9 @@ package org.hisp.dhis.analytics.event.data;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.*;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.ANALYTICS_TBL_ALIAS;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.quote;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.quoteAlias;
 import static org.hisp.dhis.common.DimensionalObject.ORGUNIT_DIM_ID;
 import static org.hisp.dhis.common.DimensionalObject.PERIOD_DIM_ID;
 import static org.hisp.dhis.common.IdentifiableObjectUtils.getUids;
@@ -38,13 +40,19 @@ import static org.hisp.dhis.util.DateUtils.getMediumDateString;
 
 import java.util.List;
 
-import org.apache.commons.lang3.StringUtils;
 import org.hisp.dhis.analytics.event.EnrollmentAnalyticsManager;
 import org.hisp.dhis.analytics.event.EventQueryParams;
 import org.hisp.dhis.analytics.event.data.programIndicator.DefaultProgramIndicatorSubqueryBuilder;
 import org.hisp.dhis.analytics.util.AnalyticsUtils;
-import org.hisp.dhis.common.*;
-import org.hisp.dhis.commons.collection.ListUtils;
+import org.hisp.dhis.common.DimensionType;
+import org.hisp.dhis.common.DimensionalItemObject;
+import org.hisp.dhis.common.DimensionalObject;
+import org.hisp.dhis.common.Grid;
+import org.hisp.dhis.common.GridHeader;
+import org.hisp.dhis.common.OrganisationUnitSelectionMode;
+import org.hisp.dhis.common.QueryFilter;
+import org.hisp.dhis.common.QueryItem;
+import org.hisp.dhis.common.QueryTimeoutException;
 import org.hisp.dhis.commons.util.ExpressionUtils;
 import org.hisp.dhis.commons.util.SqlHelper;
 import org.hisp.dhis.jdbc.StatementBuilder;
@@ -316,11 +324,12 @@ public class JdbcEnrollmentAnalyticsManager
     }
 
     @Override
-    protected String getSelectClause( EventQueryParams params )
+    protected ColumnList getColumnList(EventQueryParams params )
     {
-        List<String> selectCols = ListUtils.distinctUnion( COLUMNS, getSelectColumns( params ) );
-
-        return  "select " + StringUtils.join( selectCols, "," ) + " ";
+        ColumnList selectCols = new ColumnList( COLUMNS );
+        selectCols.addAll( getSelectColumns( params ) );
+        
+        return selectCols;
     }
 
     /**
